@@ -273,7 +273,7 @@ function transactionForm(t=null,type="expense"){
   const defaultCard=t?.cardId||"";
   const paymentDate=t?.paymentDate || (defaultCard?nextCardPaymentDate(defaultCard,t?.date||today()):(t?.date||today()));
   return `<form id="txForm"><div class="form-grid">
-    <div><label>Data da compra / lançamento</label><input name="date" type="date" value="${t?.date||today()}" required></div>
+    <div><label>Data da compra</label><input name="date" type="date" value="${t?.date||today()}" required></div>
     <div><label>Valor total</label><input name="value" id="txValue" type="number" min="0" step="0.01" value="${t?.value??""}" required></div>
     <div class="full"><label>Descrição</label><input name="description" id="txDescription" value="${esc(t?.description||"")}" placeholder="Ex.: Mercado, Uber, conta de luz..." required></div>
     ${isExpense?`
