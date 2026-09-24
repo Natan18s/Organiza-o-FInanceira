@@ -25,6 +25,7 @@ let selectedImport = null;
 let pendingImport = [];
 let selectedTxIds = new Set();
 let month = localISO(new Date()).slice(0,7);
+let cashFilter = "all";   // filtro do fluxo de caixa: all | paid | pending
 
 const $ = id => document.getElementById(id);
 const fmtMoney = n => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(n)||0);
@@ -121,12 +122,27 @@ function renderDashboard(){
     return `<div class="bar-row"><div class="bar-label"><span>${esc(c?.name||"Cartão")}</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${Math.min(100,v/(c?.limit||Math.max(v,1))*100)}%"></i></div></div>`;
   }).join("") : '<div class="empty">Sem compras em cartão neste mês.</div>';
 
-  const flows=scheduledPaymentsForMonth(month).slice().sort((a,b)=>a.paymentDate.localeCompare(b.paymentDate));
+  // Pagamentos previstos do mês separados por status (recalculado a cada save())
+  const sched=scheduledPaymentsForMonth(month);
+  const isPaid=t=>t.paymentStatus==="paid";
+  const paidSum=sched.filter(isPaid).reduce((s,t)=>s+t.value,0);
+  const pendingSum=scheduled-paidSum;
+  const paidPct=scheduled>0?Math.round(paidSum/scheduled*100):0, pendingPct=scheduled>0?100-paidPct:0;
+  $("paymentStatusBars").innerHTML=scheduled>0
+    ? `<div class="bar-row"><div class="bar-label"><span>Pagamentos previstos já pagos (${paidPct}%)</span><b class="positive">${fmtMoney(paidSum)}</b></div><div class="bar"><i style="width:${paidPct}%;background:#15803d"></i></div></div><div class="bar-row"><div class="bar-label"><span>Pagamentos previstos não pagos (${pendingPct}%)</span><b class="warning">${fmtMoney(pendingSum)}</b></div><div class="bar"><i style="width:${pendingPct}%;background:#b45309"></i></div></div>`
+    : '<div class="empty">Nenhum pagamento previsto neste mês.</div>';
+
+  // Fluxo de caixa com filtro (Todos / Pagos / Não pagos) e subtotal
+  const flows=sched.slice().sort((a,b)=>a.paymentDate.localeCompare(b.paymentDate));
+  const shownFlows=flows.filter(t=>cashFilter==="all"||(cashFilter==="paid"?isPaid(t):!isPaid(t)));
   const cashItems=[];
-  txPurchase.filter(t=>t.type==="income").forEach(t=>cashItems.push({date:t.date,type:"income",title:t.description,value:t.value,status:t.source==="reimbursement"?"Reembolso":"Entrada"}));
-  flows.forEach(t=>cashItems.push({date:t.paymentDate,type:"expense",title:t.description,value:t.value,status:t.paymentStatus==="paid"?"Pago":"Previsto",card:t.cardId?data.cards.find(c=>c.id===t.cardId)?.name:""}));
+  if(cashFilter==="all") txPurchase.filter(t=>t.type==="income").forEach(t=>cashItems.push({date:t.date,type:"income",title:t.description,value:t.value,status:t.source==="reimbursement"?"Reembolso":"Entrada"}));
+  shownFlows.forEach(t=>cashItems.push({id:t.id,paid:isPaid(t),date:t.paymentDate,type:"expense",title:t.description,value:t.value,status:isPaid(t)?"Pago":"Previsto",card:t.cardId?data.cards.find(c=>c.id===t.cardId)?.name:""}));
   cashItems.sort((a,b)=>a.date.localeCompare(b.date));
-  $("cashflowList").innerHTML=cashItems.length ? cashItems.map(x=>`<div class="cashflow-item"><div class="cashflow-main"><span class="cashflow-dot ${x.type}"></span><div><b>${esc(x.title)}</b><div class="muted">${fmtDate(x.date)} · ${esc(x.status)}${x.card?` · ${esc(x.card)}`:""}</div></div></div><strong class="${x.type==="expense"?"negative":"positive"}">${x.type==="expense"?"-":"+"} ${fmtMoney(x.value)}</strong></div>`).join("") : '<div class="empty">Nenhuma entrada ou pagamento previsto neste mês.</div>';
+  document.querySelectorAll("[data-cash-filter]").forEach(b=>b.classList.toggle("primary",b.dataset.cashFilter===cashFilter));
+  $("cashflowList").innerHTML=cashItems.length ? cashItems.map(x=>`<div class="cashflow-item"><div class="cashflow-main"><span class="cashflow-dot ${x.type}"></span><div><b>${esc(x.title)}</b><div class="muted">${fmtDate(x.date)} · ${esc(x.status)}${x.card?` · ${esc(x.card)}`:""}</div>${x.id?`<button class="btn ghost" style="margin-top:6px;padding:4px 9px;font-size:12px" onclick="togglePaid('${x.id}')">${x.paid?"Voltar para previsto":"Marcar como pago"}</button>`:""}</div></div><strong class="${x.type==="expense"?"negative":"positive"}">${x.type==="expense"?"-":"+"} ${fmtMoney(x.value)}</strong></div>`).join("") : '<div class="empty">Nenhuma entrada ou pagamento previsto neste mês.</div>';
+  const sub=shownFlows.reduce((sum,t)=>sum+t.value,0);
+  $("cashflowSubtotal").innerHTML=cashFilter==="all"?"":`Subtotal ${cashFilter==="paid"?"dos pagamentos já pagos":"dos pagamentos não pagos"}: <b>${fmtMoney(sub)}</b>`;
 
   const pend=[];
   data.transactions.filter(t=>t.type==="expense").forEach(t=>(t.splits||[]).forEach((s,idx)=>{
@@ -238,6 +254,12 @@ function renderCards(){
     const pct=c.limit ? Math.min(100,total/c.limit*100):0;
     return `<article class="card-mini"><h3>${esc(c.name)}</h3><div class="muted">Compras no mês</div><div class="big">${fmtMoney(total)}</div><div class="muted">Pagamento previsto no mês: <b>${fmtMoney(toPay)}</b></div><div class="muted">Fecha dia ${c.closing} · vence dia ${c.due}</div>${c.limit?`<div class="bar-row"><div class="bar-label"><span>Limite</span><span>${fmtMoney(c.limit)}</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>`:""}<div class="row-actions"><button class="btn" onclick="openCardModal('${c.id}')">Editar</button><button class="btn ghost" onclick="deleteCard('${c.id}')">Excluir</button></div></article>`;
   }).join("");
+}
+function setCashFilter(f){ cashFilter=f; renderDashboard(); }
+function togglePaid(id){
+  const t=data.transactions.find(x=>x.id===id); if(!t||t.type!=="expense")return;
+  t.paymentStatus=t.paymentStatus==="paid"?"planned":"paid";
+  save(); toast(t.paymentStatus==="paid"?"Marcado como pago":"Voltou para previsto");   // save() recalcula o Resumo
 }
 function renderPeople(){
   const pendingBy={};

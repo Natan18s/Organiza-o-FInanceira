@@ -53,8 +53,15 @@
     </div>
 
     <article class="card section">
-      <div class="card-head"><div><h2>Fluxo de caixa do mês</h2><div class="muted">As compras de cartão podem ter sido feitas em setembro, mas entram aqui quando a fatura estiver prevista para pagamento em outubro.</div></div></div>
+      <div class="card-head"><div><h2>Pagamentos previstos no mês</h2><div class="muted">O total do "Pagamento previsto no mês", separado entre o que já foi pago e o que ainda falta pagar.</div></div></div>
+      <div id="paymentStatusBars"></div>
+    </article>
+
+    <article class="card section">
+      <div class="card-head"><div><h2>Fluxo de caixa do mês</h2><div class="muted">As compras de cartão podem ter sido feitas em outro mês, mas entram aqui quando a despesa estiver prevista para pagamento neste mês.</div></div></div>
+      <div class="row-actions" style="margin:8px 0"><button class="btn primary" data-cash-filter="all" onclick="setCashFilter('all')">Todos</button><button class="btn" data-cash-filter="paid" onclick="setCashFilter('paid')">Já pagos</button><button class="btn" data-cash-filter="pending" onclick="setCashFilter('pending')">Não pagos</button></div>
       <div id="cashflowList"></div>
+      <div id="cashflowSubtotal" class="muted" style="padding-top:8px"></div>
     </article>
 
     <div class="grid-2">
