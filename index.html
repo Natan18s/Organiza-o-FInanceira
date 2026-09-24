@@ -53,7 +53,7 @@
     </div>
 
     <article class="card section">
-      <div class="card-head"><div><h2>Fluxo de caixa do mês</h2><div class="muted">As compras de cartão podem ter sido feitas em outro mês, mas entram aqui quando a fatura estiver prevista para pagar neste mês.</div></div></div>
+      <div class="card-head"><div><h2>Fluxo de caixa do mês</h2><div class="muted">As compras de cartão podem ter sido feitas em setembro, mas entram aqui quando a fatura estiver prevista para pagamento em outubro.</div></div></div>
       <div id="cashflowList"></div>
     </article>
 
@@ -110,7 +110,7 @@
   </section>
 
   <section id="cards" class="page hidden">
-    <div class="page-head"><div><h1>Cartões</h1><p class="muted">Fechamento, vencimento, limite e total da fatura.</p></div><button class="btn primary" id="newCard">+ Cartão</button></div>
+    <div class="page-head"><div><h1>Cartões</h1><p class="muted">Fechamento, vencimento, limite e total da fatura.</p></div><div class="row-actions"><input id="cardsMonth" type="month" class="month"><button class="btn primary" id="newCard">+ Cartão</button></div></div>
     <div id="cardsGrid" class="metric-grid"></div>
   </section>
 
@@ -171,11 +171,6 @@
         <button class="btn primary" id="exportBackup">Exportar backup JSON</button>
         <button class="btn" id="restoreBackup">Restaurar backup</button>
         <input id="backupInput" type="file" accept=".json,application/json" class="hidden-file">
-        <hr>
-        <h3>O problema do seu CSV</h3>
-        <p class="muted">O CSV do Nubank que você enviou usa cabeçalho <code>date,title,amount</code>, ponto para a data e vírgula como separador decimal. A versão anterior esperava outro formato. Esta versão reconhece esse padrão diretamente.</p>
-        <h3>O problema do seu OFX</h3>
-        <p class="muted">O arquivo OFX tem transações em <code>STMTTRN</code> e identifica o cartão como conta de crédito. A versão anterior só aceitava CSV; por isso o seletor nem oferecia o OFX. Agora o app detecta o formato automaticamente.</p>
       </article>
     </div>
   </section>

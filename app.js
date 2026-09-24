@@ -63,10 +63,8 @@ function switchTab(tab){
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));
 document.querySelectorAll("[data-tab-link]").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tabLink)));
 
-$("dashboardMonth").value=month;
-$("txMonth").value=month;
-$("dashboardMonth").addEventListener("change",e=>{month=e.target.value;$("txMonth").value=month;renderAll()});
-$("txMonth").addEventListener("change",e=>{month=e.target.value;$("dashboardMonth").value=month;renderAll()});
+function setMonth(m){ if(!m)return; month=m; ["dashboardMonth","txMonth","cardsMonth"].forEach(id=>{$(id).value=m}); renderAll(); }
+["dashboardMonth","txMonth","cardsMonth"].forEach(id=>{$(id).value=month;$(id).addEventListener("change",e=>setMonth(e.target.value))});
 $("txSearch").addEventListener("input",renderTransactions);
 $("txType").addEventListener("change",renderTransactions);
 $("selectAllTx").addEventListener("change",toggleSelectAll);
@@ -233,10 +231,12 @@ function clearBulkPaymentDate(){
 }
 
 function renderCards(){
+  const purchases=txForMonth(month), toPayMonth=scheduledPaymentsForMonth(month);
   $("cardsGrid").innerHTML=data.cards.map(c=>{
-    const total=txForMonth(month).filter(t=>t.type==="expense"&&t.cardId===c.id).reduce((s,t)=>s+t.value,0);
+    const total=purchases.filter(t=>t.type==="expense"&&t.cardId===c.id).reduce((s,t)=>s+t.value,0);
+    const toPay=toPayMonth.filter(t=>t.cardId===c.id).reduce((s,t)=>s+t.value,0);
     const pct=c.limit ? Math.min(100,total/c.limit*100):0;
-    return `<article class="card-mini"><h3>${esc(c.name)}</h3><div class="big">${fmtMoney(total)}</div><div class="muted">Fecha dia ${c.closing} · vence dia ${c.due}</div>${c.limit?`<div class="bar-row"><div class="bar-label"><span>Limite</span><span>${fmtMoney(c.limit)}</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>`:""}<div class="row-actions"><button class="btn" onclick="openCardModal('${c.id}')">Editar</button><button class="btn ghost" onclick="deleteCard('${c.id}')">Excluir</button></div></article>`;
+    return `<article class="card-mini"><h3>${esc(c.name)}</h3><div class="muted">Compras no mês</div><div class="big">${fmtMoney(total)}</div><div class="muted">Pagamento previsto no mês: <b>${fmtMoney(toPay)}</b></div><div class="muted">Fecha dia ${c.closing} · vence dia ${c.due}</div>${c.limit?`<div class="bar-row"><div class="bar-label"><span>Limite</span><span>${fmtMoney(c.limit)}</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>`:""}<div class="row-actions"><button class="btn" onclick="openCardModal('${c.id}')">Editar</button><button class="btn ghost" onclick="deleteCard('${c.id}')">Excluir</button></div></article>`;
   }).join("");
 }
 function renderPeople(){
@@ -270,7 +270,7 @@ function makeDefaultSplit(amount, description, existing){
 
 const METHODS={pix:"Pix",debit:"Débito",cash:"Dinheiro",credit:"Crédito",installment:"Parcelado"};
 const isCreditMethod=m=>m==="credit"||m==="installment";
-let autoSplit=false, payTouched=false, firstMonthTouched=false;
+let autoSplit=false, payTouched=false, firstMonthTouched=false, statusTouched=false;
 
 // Crédito/Parcelado: vencimento do cartão no MÊS SEGUINTE ao da compra
 function nextMonthPaymentDate(cardId,baseDate){
@@ -285,6 +285,7 @@ function transactionForm(t=null,type="expense"){
   const isExpense=type==="expense";
   const splits=(t?.splits?.length?t.splits:makeDefaultSplit(t?.value||0,t?.description||"")).map(s=>({...s}));
   const method=t?.method||"pix";
+  const status=t?.paymentStatus||(isCreditMethod(method)?"planned":"paid");
   const lock=t?'data-lock="1" disabled':"";
   return `<form id="txForm"><div class="form-grid">
     <div><label>Data da compra / lançamento</label><input name="date" id="txDate" type="date" value="${t?.date||today()}" required></div>
@@ -293,10 +294,8 @@ function transactionForm(t=null,type="expense"){
     ${isExpense?`
       <div><label>Forma de pagamento</label><select name="method" id="txMethod">${Object.entries(METHODS).map(([k,v])=>`<option value="${k}" ${k===method?"selected":""}>${v}</option>`).join("")}</select></div>
       <div id="grpCard"><label>Cartão</label><select name="cardId" id="txCard"><option value="">Selecione o cartão</option>${data.cards.map(c=>`<option value="${c.id}" ${t?.cardId===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}</select></div>
-      <div id="grpPay" class="full form-grid">
-        <div><label>Pagamento previsto</label><input name="paymentDate" id="txPaymentDate" type="date" value="${t?.paymentDate||""}"><div class="row-actions" style="margin-top:5px"><button type="button" class="btn ghost" id="useCardDue">Usar vencimento pelo fechamento</button></div></div>
-        <div><label>Status do pagamento</label><select name="paymentStatus" id="txStatus"><option value="planned" ${t?.paymentStatus!=="paid"?"selected":""}>Previsto / ainda não pago</option><option value="paid" ${t?.paymentStatus==="paid"?"selected":""}>Já pago</option></select></div>
-      </div>
+      <div id="grpPay"><label>Pagamento previsto</label><input name="paymentDate" id="txPaymentDate" type="date" value="${t?.paymentDate||""}"><div class="row-actions" style="margin-top:5px"><button type="button" class="btn ghost" id="useCardDue">Usar vencimento pelo fechamento</button></div></div>
+      <div id="grpStatus"><label>Status do pagamento</label><select name="paymentStatus" id="txStatus"><option value="planned" ${status!=="paid"?"selected":""}>Previsto / ainda não pago</option><option value="paid" ${status==="paid"?"selected":""}>Já pago</option></select><div class="field-note">Pix, débito e dinheiro começam como "Já pago"; mude para "Previsto" se for uma despesa futura.</div></div>
       <div id="grpInst" class="full form-grid">
         <div><label>Total de parcelas</label><input name="installments" id="txInstallments" type="number" step="1" value="${t?.installments>1?t.installments:""}" placeholder="Ex.: 10" ${lock}></div>
         <div><label>Parcela inicial (restantes)</label><input name="startInstallment" id="txStart" type="number" step="1" value="${t?.installmentNo||1}" ${lock}><div class="field-note">1 = compra nova. Se já pagou 3 parcelas, use 4: só as restantes serão lançadas.</div></div>
@@ -335,7 +334,7 @@ function openTransactionModal(type="expense",tx=null){
   openModal(tx?(type==="expense"?"Editar gasto":"Editar entrada"):(type==="expense"?"Novo gasto":"Nova entrada"),transactionForm(tx,type));
   if(type==="expense"){
     const list=$("splitList");
-    autoSplit=!tx; payTouched=!!tx; firstMonthTouched=!!tx;
+    autoSplit=!tx; payTouched=!!tx; firstMonthTouched=!!tx; statusTouched=!!tx;
     const show=(id,on)=>{const g=$(id);g.classList.toggle("hidden",!on);g.querySelectorAll("input,select").forEach(i=>{i.disabled=!on||i.dataset.lock==="1"})};
     const autoPaymentDate=()=>{$("txPaymentDate").value=nextMonthPaymentDate($("txCard").value,$("txDate").value)};
     // Regra 2: pagamento em mês diferente da compra => status "Previsto" e parcelamento acompanha o mês do pagamento
@@ -348,7 +347,8 @@ function openTransactionModal(type="expense",tx=null){
     };
     const refreshMethod=()=>{
       const m=$("txMethod").value,credit=isCreditMethod(m),inst=m==="installment";
-      show("grpCard",credit);show("grpPay",credit);show("grpInst",inst);   // Pix/Débito/Dinheiro: tudo isso some e não é validado
+      show("grpCard",credit);show("grpPay",credit);show("grpInst",inst);   // Pix/Débito/Dinheiro: cartão, vencimento e parcelas somem (não são validados); o status continua editável
+      if(!statusTouched)$("txStatus").value=credit?"planned":"paid";   // padrão automático, mas o usuário pode mudar
       $("txValueLabel").textContent=tx&&tx.installments>1?"Valor desta parcela":(inst&&!tx?"Valor total da compra":"Valor total");
       $("valueNote").textContent=inst&&!tx?"Será dividido pelo total de parcelas.":"";
       if(credit){if(!$("txCard").value&&data.cards.length===1)$("txCard").value=data.cards[0].id;if(!tx&&!payTouched)autoPaymentDate();syncPaymentRules()}
@@ -367,6 +367,7 @@ function openTransactionModal(type="expense",tx=null){
     $("splitEqual").onclick=()=>{autoSplit=true;distributeEqual()};
     [...list.children].forEach(bindSplitRow);
     $("txMethod").addEventListener("change",refreshMethod);
+    $("txStatus").addEventListener("change",()=>{statusTouched=true});
     $("txCard").addEventListener("change",()=>{if(!tx&&!payTouched)autoPaymentDate();syncPaymentRules();renderInstallPreview()});
     $("txDate").addEventListener("change",()=>{if(!tx&&!payTouched&&isCreditMethod($("txMethod").value))autoPaymentDate();syncPaymentRules();renderInstallPreview()});
     $("txPaymentDate").addEventListener("input",()=>{payTouched=true;syncPaymentRules();renderInstallPreview()});
@@ -414,7 +415,7 @@ function saveExpenseFromForm(existingId){
     if(!(start>=1&&start<=n)){alert("A parcela inicial deve estar entre 1 e o total de parcelas.");return}
   }
   // Pix/Débito/Dinheiro: campos de cartão/parcelas ficam de fora; pagamento = data da compra, já pago
-  const base={date,description:f.get("description"),value,method,cardId:credit?f.get("cardId"):"",paymentDate:credit?(f.get("paymentDate")||date):date,paymentStatus:credit?(f.get("paymentStatus")||"planned"):"paid",notes:f.get("notes")||"",type:"expense",splits};
+  const base={date,description:f.get("description"),value,method,cardId:credit?f.get("cardId"):"",paymentDate:credit?(f.get("paymentDate")||date):date,paymentStatus:f.get("paymentStatus")||(credit?"planned":"paid"),notes:f.get("notes")||"",type:"expense",splits};
   if(existingId){
     const old=data.transactions.find(t=>t.id===existingId);
     data.transactions=data.transactions.map(t=>t.id===existingId?{...old,...base}:t);toast("Gasto atualizado");
