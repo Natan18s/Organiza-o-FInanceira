@@ -10,7 +10,7 @@ const defaultData = {
     {id:"nubank", name:"Nubank", limit:0, closing:10, due:19},
     {id:"picpay", name:"PicPay", limit:0, closing:10, due:19}
   ],
-  categories: ["Casa","Alimentação","Transporte","Contas","Lazer","Compras","Saúde","Educação","Investimentos","Doações","Outros"],
+  categories: ["Casa","Alimentação","Transporte","Contas","Lazer","Compras","Saúde","Educação","Investimentos","Doações","Empréstimos cedidos","Outros"],
   rules: [
     {id:"r1", keyword:"uber", category:"Transporte"},
     {id:"r2", keyword:"99", category:"Transporte"},
@@ -26,6 +26,7 @@ let pendingImport = [];
 let selectedTxIds = new Set();
 let month = localISO(new Date()).slice(0,7);
 let cashFilter = "all";   // filtro do fluxo de caixa: all | paid | pending
+const LOAN_CATEGORY = "Empréstimos cedidos";   // categoria especial: dinheiro emprestado a alguém
 
 const $ = id => document.getElementById(id);
 const fmtMoney = n => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(n)||0);
@@ -90,72 +91,121 @@ function splitTotal(t){ return (t.splits||[]).reduce((s,x)=>s+Number(x.amount||0
 function ownAmount(t){ if(t.type!=="expense") return 0; return (t.splits||[]).filter(s=>s.ownerId==="self").reduce((s,x)=>s+Number(x.amount||0),0); }
 function receivableAmount(t){ if(t.type!=="expense") return 0; return (t.splits||[]).filter(s=>s.ownerId!=="self" && s.reimbursed!==true).reduce((s,x)=>s+Number(x.amount||0),0); }
 function reimbursedAmount(t){ if(t.type!=="expense") return 0; return (t.splits||[]).filter(s=>s.ownerId!=="self" && s.reimbursed===true).reduce((s,x)=>s+Number(x.amount||0),0); }
+function loanSplits(t){ return (t.splits||[]).filter(s=>s.category===LOAN_CATEGORY); }
+// Dinheiro que outras pessoas ainda te devem de empréstimos, com pagamento previsto no mês m (é uma incógnita: pode não vir)
+function loanReceivableForMonth(m){
+  let sum=0;
+  data.transactions.filter(t=>t.type==="expense" && (t.paymentDate||t.date).slice(0,7)===m).forEach(t=>{
+    loanSplits(t).forEach(s=>{ if(s.ownerId!=="self" && s.reimbursed!==true) sum+=Number(s.amount||0); });
+  });
+  return sum;
+}
+// Dinheiro novo emprestado a outras pessoas no mês (saída de caixa)
+function loanGivenForMonth(m){
+  let sum=0;
+  txForMonth(m).filter(t=>t.type==="expense").forEach(t=>loanSplits(t).forEach(s=>sum+=Number(s.amount||0)));
+  return sum;
+}
+// Entradas do mês separadas por origem: salário/normal, devolução de empréstimo, outros reembolsos
+function incomeBreakdownForMonth(m){
+  const inc=txForMonth(m).filter(t=>t.type==="income");
+  const loan=inc.filter(t=>t.sourceCategory===LOAN_CATEGORY).reduce((s,t)=>s+t.value,0);
+  const reimb=inc.filter(t=>t.source==="reimbursement" && t.sourceCategory!==LOAN_CATEGORY).reduce((s,t)=>s+t.value,0);
+  const total=inc.reduce((s,t)=>s+t.value,0);
+  return {normal:total-loan-reimb, loan, reimb, total};
+}
 
 function renderAll(){ renderDashboard(); renderTransactions(); renderCards(); renderPeople(); renderCategories(); renderRules(); renderImportCardOptions(); }
 
 function renderDashboard(){
   const txPurchase=txForMonth(month);
-  const income=txPurchase.filter(t=>t.type==="income").reduce((s,t)=>s+t.value,0);
+  const incB=incomeBreakdownForMonth(month);
+  const income=incB.total;
   const gross=txPurchase.filter(t=>t.type==="expense").reduce((s,t)=>s+t.value,0);
-  const receivable=txPurchase.filter(t=>t.type==="expense").reduce((s,t)=>s+receivableAmount(t),0);
   const own=txPurchase.filter(t=>t.type==="expense").reduce((s,t)=>s+ownAmount(t),0);
   const scheduled=scheduledPaymentsForMonth(month).reduce((s,t)=>s+t.value,0);
-  const reimb=txPurchase.filter(t=>t.type==="income" && t.source==="reimbursement").reduce((s,t)=>s+t.value,0);
+  const loanReceivable=loanReceivableForMonth(month);
+  const loanGiven=loanGivenForMonth(month);
   const projected=income-scheduled;
+  const projectedOptimistic=projected+loanReceivable;
+
   $("mIncome").textContent=fmtMoney(income);
-  $("mGross").textContent=fmtMoney(gross);
   $("mScheduled").textContent=fmtMoney(scheduled);
-  $("mReceivable").textContent=fmtMoney(receivable);
   $("mOwn").textContent=fmtMoney(own);
   $("mBalance").textContent=fmtMoney(projected);
   $("mBalance").className=""+(projected>=0?"positive":"negative");
+  $("mBalanceOptimistic").textContent = loanReceivable>0.004
+    ? `Se os ${fmtMoney(loanReceivable)} previstos de empréstimos entrarem, o saldo sobe para ${fmtMoney(projectedOptimistic)}. Não contamos esse valor no saldo principal porque ainda não é certo.`
+    : "";
+
+  // Balanço visual: entradas x saídas previstas do mês, lado a lado
+  const maxBal=Math.max(income,scheduled,1);
+  $("balanceBars").innerHTML=`
+    <div class="bar-row"><div class="bar-label"><span>Entradas</span><b class="positive">${fmtMoney(income)}</b></div><div class="bar"><i style="width:${income/maxBal*100}%;background:#15803d"></i></div></div>
+    <div class="bar-row"><div class="bar-label"><span>Saídas previstas</span><b class="negative">${fmtMoney(scheduled)}</b></div><div class="bar"><i style="width:${scheduled/maxBal*100}%;background:#b91c1c"></i></div></div>`;
+
+  // Entradas por origem: salário/normal, devolução de empréstimo, outros reembolsos
+  const incRows=[
+    {label:"Salário e outras entradas",v:incB.normal,color:"#2563eb"},
+    {label:"Devolução de empréstimos cedidos",v:incB.loan,color:"#15803d"},
+    {label:"Outros reembolsos recebidos",v:incB.reimb,color:"#7c3aed"}
+  ].filter(r=>r.v>0.004);
+  $("incomeBreakdown").innerHTML=incRows.length ? incRows.map(r=>{const pct=incB.total>0?Math.round(r.v/incB.total*100):0;return `<div class="bar-row"><div class="bar-label"><span>${r.label} (${pct}%)</span><b>${fmtMoney(r.v)}</b></div><div class="bar"><i style="width:${pct}%;background:${r.color}"></i></div></div>`}).join("") : '<div class="empty">Nenhuma entrada neste mês.</div>';
+
+  $("mLoanReceivable").textContent=fmtMoney(loanReceivable);
+  $("mLoanGiven").textContent=fmtMoney(loanGiven);
 
   const cat={}; txPurchase.filter(t=>t.type==="expense").forEach(t=>(t.splits||[]).forEach(s=>cat[s.category]=(cat[s.category]||0)+Number(s.amount||0)));
   const catArr=Object.entries(cat).sort((a,b)=>b[1]-a[1]);
   const max=catArr[0]?.[1]||1;
-  $("categoryBars").innerHTML=catArr.length ? catArr.slice(0,10).map(([k,v])=>`<div class="bar-row"><div class="bar-label"><span>${esc(k)}</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${(v/max)*100}%"></i></div></div>`).join("") : '<div class="empty">Sem gastos neste mês.</div>';
+  $("categoryTotal").textContent=gross>0?`Total do mês: ${fmtMoney(gross)}`:"";
+  $("categoryBars").innerHTML=catArr.length ? catArr.slice(0,10).map(([k,v])=>{const pct=Math.round(v/max*100);return `<div class="bar-row"><div class="bar-label"><span>${esc(k)} (${pct}%)</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>`}).join("") : '<div class="empty">Sem gastos neste mês.</div>';
 
-  const cards={}; txPurchase.filter(t=>t.type==="expense"&&t.cardId).forEach(t=>cards[t.cardId]=(cards[t.cardId]||0)+t.value);
-  const cArr=Object.entries(cards).sort((a,b)=>b[1]-a[1]);
+  const cardsCat={}; txPurchase.filter(t=>t.type==="expense"&&t.cardId).forEach(t=>cardsCat[t.cardId]=(cardsCat[t.cardId]||0)+t.value);
+  const cArr=Object.entries(cardsCat).sort((a,b)=>b[1]-a[1]);
   $("cardBars").innerHTML=cArr.length ? cArr.map(([id,v])=>{
-    const c=data.cards.find(x=>x.id===id);
-    return `<div class="bar-row"><div class="bar-label"><span>${esc(c?.name||"Cartão")}</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${Math.min(100,v/(c?.limit||Math.max(v,1))*100)}%"></i></div></div>`;
+    const c=data.cards.find(x=>x.id===id), pct=Math.min(100,v/(c?.limit||Math.max(v,1))*100);
+    return `<div class="bar-row"><div class="bar-label"><span>${esc(c?.name||"Cartão")} (${Math.round(pct)}%)</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
   }).join("") : '<div class="empty">Sem compras em cartão neste mês.</div>';
 
-  // Pagamentos previstos do mês separados por status (recalculado a cada save())
+  // Pagamentos previstos do mês separados por status
   const sched=scheduledPaymentsForMonth(month);
   const isPaid=t=>t.paymentStatus==="paid";
   const paidSum=sched.filter(isPaid).reduce((s,t)=>s+t.value,0);
   const pendingSum=scheduled-paidSum;
   const paidPct=scheduled>0?Math.round(paidSum/scheduled*100):0, pendingPct=scheduled>0?100-paidPct:0;
   $("paymentStatusBars").innerHTML=scheduled>0
-    ? `<div class="bar-row"><div class="bar-label"><span>Pagamentos previstos já pagos (${paidPct}%)</span><b class="positive">${fmtMoney(paidSum)}</b></div><div class="bar"><i style="width:${paidPct}%;background:#15803d"></i></div></div><div class="bar-row"><div class="bar-label"><span>Pagamentos previstos não pagos (${pendingPct}%)</span><b class="warning">${fmtMoney(pendingSum)}</b></div><div class="bar"><i style="width:${pendingPct}%;background:#b45309"></i></div></div>`
-    : '<div class="empty">Nenhum pagamento previsto neste mês.</div>';
+    ? `<div class="bar-row"><div class="bar-label"><span>Saídas previstas já pagas (${paidPct}%)</span><b class="positive">${fmtMoney(paidSum)}</b></div><div class="bar"><i style="width:${paidPct}%;background:#15803d"></i></div></div><div class="bar-row"><div class="bar-label"><span>Saídas previstas não pagas (${pendingPct}%)</span><b class="warning">${fmtMoney(pendingSum)}</b></div><div class="bar"><i style="width:${pendingPct}%;background:#b45309"></i></div></div>`
+    : '<div class="empty">Nenhuma saída prevista neste mês.</div>';
 
   // Fluxo de caixa com filtro (Todos / Pagos / Não pagos) e subtotal
-  const flows=sched.slice().sort((a,b)=>a.paymentDate.localeCompare(b.paymentDate));
+  const flows=sched.slice().sort((a,b)=>a.paymentDate.localeCompare(b.paymentDate)||(a.createdAt||0)-(b.createdAt||0));
   const shownFlows=flows.filter(t=>cashFilter==="all"||(cashFilter==="paid"?isPaid(t):!isPaid(t)));
   const cashItems=[];
-  if(cashFilter==="all") txPurchase.filter(t=>t.type==="income").forEach(t=>cashItems.push({date:t.date,type:"income",title:t.description,value:t.value,status:t.source==="reimbursement"?"Reembolso":"Entrada"}));
+  if(cashFilter==="all") txPurchase.filter(t=>t.type==="income").forEach(t=>cashItems.push({date:t.date,type:"income",title:t.description,value:t.value,status:t.source==="reimbursement"?(t.sourceCategory===LOAN_CATEGORY?"Empréstimo devolvido":"Reembolso"):"Entrada"}));
   shownFlows.forEach(t=>cashItems.push({id:t.id,paid:isPaid(t),date:t.paymentDate,type:"expense",title:t.description,value:t.value,status:isPaid(t)?"Pago":"Previsto",card:t.cardId?data.cards.find(c=>c.id===t.cardId)?.name:""}));
   cashItems.sort((a,b)=>a.date.localeCompare(b.date));
   document.querySelectorAll("[data-cash-filter]").forEach(b=>b.classList.toggle("primary",b.dataset.cashFilter===cashFilter));
-  $("cashflowList").innerHTML=cashItems.length ? cashItems.map(x=>`<div class="cashflow-item"><div class="cashflow-main"><span class="cashflow-dot ${x.type}"></span><div><b>${esc(x.title)}</b><div class="muted">${fmtDate(x.date)} · ${esc(x.status)}${x.card?` · ${esc(x.card)}`:""}</div>${x.id?`<button class="btn ghost" style="margin-top:6px;padding:4px 9px;font-size:12px" onclick="togglePaid('${x.id}')">${x.paid?"Voltar para previsto":"Marcar como pago"}</button>`:""}</div></div><strong class="${x.type==="expense"?"negative":"positive"}">${x.type==="expense"?"-":"+"} ${fmtMoney(x.value)}</strong></div>`).join("") : '<div class="empty">Nenhuma entrada ou pagamento previsto neste mês.</div>';
+  $("cashflowList").innerHTML=cashItems.length ? cashItems.map(x=>`<div class="cashflow-item"><div class="cashflow-main"><span class="cashflow-dot ${x.type}"></span><div><b>${esc(x.title)}</b><div class="muted">${fmtDate(x.date)} · ${esc(x.status)}${x.card?` · ${esc(x.card)}`:""}</div>${x.id?`<button class="btn ghost" style="margin-top:6px;padding:4px 9px;font-size:12px" onclick="togglePaid('${x.id}')">${x.paid?"Voltar para previsto":"Marcar como pago"}</button>`:""}</div></div><strong class="${x.type==="expense"?"negative":"positive"}">${x.type==="expense"?"-":"+"} ${fmtMoney(x.value)}</strong></div>`).join("") : '<div class="empty">Nenhuma entrada ou saída prevista neste mês.</div>';
   const sub=shownFlows.reduce((sum,t)=>sum+t.value,0);
-  $("cashflowSubtotal").innerHTML=cashFilter==="all"?"":`Subtotal ${cashFilter==="paid"?"dos pagamentos já pagos":"dos pagamentos não pagos"}: <b>${fmtMoney(sub)}</b>`;
+  $("cashflowSubtotal").innerHTML=cashFilter==="all"?"":`Subtotal ${cashFilter==="paid"?"das saídas já pagas":"das saídas não pagas"}: <b>${fmtMoney(sub)}</b>`;
 
   const pend=[];
   data.transactions.filter(t=>t.type==="expense").forEach(t=>(t.splits||[]).forEach((s,idx)=>{
     if(s.ownerId!=="self" && s.reimbursed!==true) pend.push({t,s,idx});
   }));
+  const pendTotal=pend.reduce((s,{s:x})=>s+Number(x.amount||0),0);
+  $("receivableBadge").textContent=pend.length?`${pend.length} · ${fmtMoney(pendTotal)}`:"nenhuma";
   $("receivableList").innerHTML=pend.length ? pend.map(({t,s,idx})=>{
     const p=data.people.find(x=>x.id===s.ownerId);
-    return `<div class="reimbursed-row"><div><b>${esc(p?.name||"Outra pessoa")}</b> · ${fmtMoney(s.amount)}<div class="muted">${esc(t.description)} · compra ${fmtDate(t.date)} · pagamento ${fmtDate(t.paymentDate||t.date)}</div></div><button class="btn" onclick="markReimbursement('${t.id}',${idx})">Marcar como recebido</button></div>`;
+    return `<div class="reimbursed-row"><div><b>${esc(p?.name||"Outra pessoa")}</b> · ${fmtMoney(s.amount)}${s.category===LOAN_CATEGORY?' <span class="tag">Empréstimo</span>':""}<div class="muted">${esc(t.description)} · compra ${fmtDate(t.date)} · pagamento ${fmtDate(t.paymentDate||t.date)}</div></div><button class="btn" onclick="markReimbursement('${t.id}',${idx})">Marcar como recebido</button></div>`;
   }).join("") : '<div class="empty">Nenhum reembolso pendente.</div>';
 
-  const recent=txPurchase.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
-  $("recentList").innerHTML=recent.length ? `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th class="right">Valor</th></tr></thead><tbody>${recent.map(t=>{const label=t.type==="expense"?"Gasto":t.type==="income"?(t.source==="reimbursement"?"Reembolso":"Entrada"):"Pagamento de cartão";const cls=t.type==="expense"?"negative":"positive";return `<tr><td>${fmtDate(t.date)}</td><td>${esc(t.description)}</td><td>${label}</td><td class="right ${cls}">${t.type==="expense"?"-":"+"} ${fmtMoney(t.value)}</td></tr>`}).join("")}</tbody></table></div>` : '<div class="empty">Nenhum lançamento.</div>';
+  const recent=txPurchase.slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt||0)-(a.createdAt||0)).slice(0,7);
+  $("recentBadge").textContent=recent.length?String(recent.length):"0";
+  $("recentList").innerHTML=recent.length ? `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th class="right">Valor</th></tr></thead><tbody>${recent.map(t=>{const label=t.type==="expense"?"Gasto":t.type==="income"?(t.source==="reimbursement"?(t.sourceCategory===LOAN_CATEGORY?"Empréstimo devolvido":"Reembolso"):"Entrada"):"Pagamento de cartão";const cls=t.type==="expense"?"negative":"positive";return `<tr><td>${fmtDate(t.date)}</td><td>${esc(t.description)}</td><td>${label}</td><td class="right ${cls}">${t.type==="expense"?"-":"+"} ${fmtMoney(t.value)}</td></tr>`}).join("")}</tbody></table></div>` : '<div class="empty">Nenhum lançamento.</div>';
 }
+
 function scheduledPaymentsForMonth(m){return data.transactions.filter(t=>t.type==="expense" && (t.paymentDate||t.date).slice(0,7)===m);}
 function nextCardPaymentDate(cardId, baseDate=today()){
   const card=data.cards.find(c=>c.id===cardId);
@@ -445,15 +495,15 @@ function saveExpenseFromForm(existingId){
     const rem=n-start+1,totalCents=Math.round(value*100),per=Math.floor(totalCents/n),first=f.get("firstMonth")||date.slice(0,7),day=date.slice(8,10),pay=base.paymentDate;
     for(let i=0;i<rem;i++){
       const k=start+i,cents=k===n?totalCents-per*(n-1):per;
-      data.transactions.push({...base,id:uid(),value:cents/100,splits:scaleSplits(splits,cents/100,value),date:shiftMonthDate(first,day,i),paymentDate:shiftMonthDate(pay.slice(0,7),pay.slice(8,10),i),paymentStatus:i===0?base.paymentStatus:"planned",installments:n,installmentNo:k});
+      data.transactions.push({...base,id:uid(),createdAt:Date.now()+i,value:cents/100,splits:scaleSplits(splits,cents/100,value),date:shiftMonthDate(first,day,i),paymentDate:shiftMonthDate(pay.slice(0,7),pay.slice(8,10),i),paymentStatus:i===0?base.paymentStatus:"planned",installments:n,installmentNo:k});
     }
     toast(`${rem} parcela(s) lançada(s)`);
   }else{
-    data.transactions.push({...base,id:uid(),installments:1,installmentNo:1});toast("Gasto salvo");
+    data.transactions.push({...base,id:uid(),createdAt:Date.now(),installments:1,installmentNo:1});toast("Gasto salvo");
   }
   closeModal();save();
 }
-function saveIncomeFromForm(existingId){const f=new FormData($("txForm")),value=Number(f.get("value")||0);if(!value){alert("Informe um valor.");return}const base={date:f.get("date"),description:f.get("description"),value,type:"income",source:f.get("incomeSource")||"normal",notes:f.get("notes")||""};if(existingId){const old=data.transactions.find(t=>t.id===existingId);data.transactions=data.transactions.map(t=>t.id===existingId?{...old,...base}:t);toast("Entrada atualizada")}else{data.transactions.push({...base,id:uid()});toast("Entrada registrada")}closeModal();save();}
+function saveIncomeFromForm(existingId){const f=new FormData($("txForm")),value=Number(f.get("value")||0);if(!value){alert("Informe um valor.");return}const base={date:f.get("date"),description:f.get("description"),value,type:"income",source:f.get("incomeSource")||"normal",notes:f.get("notes")||""};if(existingId){const old=data.transactions.find(t=>t.id===existingId);data.transactions=data.transactions.map(t=>t.id===existingId?{...old,...base}:t);toast("Entrada atualizada")}else{data.transactions.push({...base,id:uid(),createdAt:Date.now()});toast("Entrada registrada")}closeModal();save();}
 function shiftMonthDate(firstMonth, day, offset){
   const [y,m]=firstMonth.split("-").map(Number);
   const last=new Date(y,m+offset,0).getDate();   // último dia do mês alvo (evita 31/02 virar março)
@@ -472,7 +522,8 @@ function markReimbursement(txId,splitIndex){
   if(s.reimbursed)return;
   s.reimbursed=true;
   const p=data.people.find(x=>x.id===s.ownerId);
-  data.transactions.push({id:uid(),date:today(),description:`Reembolso: ${t.description}`,value:Number(s.amount),type:"income",source:"reimbursement",notes:`Recebido de ${p?.name||"outra pessoa"}`,linkedTransactionId:txId,linkedSplitId:s.id});
+  const isLoan=s.category===LOAN_CATEGORY;
+  data.transactions.push({id:uid(),createdAt:Date.now(),date:today(),description:`${isLoan?"Empréstimo devolvido":"Reembolso"}: ${t.description}`,value:Number(s.amount),type:"income",source:"reimbursement",sourceCategory:s.category,notes:`Recebido de ${p?.name||"outra pessoa"}`,linkedTransactionId:txId,linkedSplitId:s.id});
   save();toast("Reembolso registrado");
 }
 

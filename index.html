@@ -38,35 +38,58 @@
     <div class="page-head">
       <div>
         <h1>Resumo</h1>
-        <p class="muted">Você pode controlar o gasto bruto, o que realmente é seu e o que outras pessoas precisam te devolver.</p>
+        <p class="muted">Entradas, saídas previstas e o que ainda depende de outras pessoas te pagarem de volta.</p>
       </div>
       <input id="dashboardMonth" type="month" class="month">
     </div>
 
-    <div class="metric-grid">
+    <div class="metric-grid metric-grid-4">
       <article class="metric"><span>Entradas no mês</span><strong id="mIncome">R$ 0,00</strong></article>
-      <article class="metric"><span>Gastos comprados no mês</span><strong id="mGross" class="negative">R$ 0,00</strong></article>
-      <article class="metric"><span>Pagamento previsto no mês</span><strong id="mScheduled" class="negative">R$ 0,00</strong></article>
-      <article class="metric"><span>Reembolsos pendentes</span><strong id="mReceivable" class="warning">R$ 0,00</strong></article>
+      <article class="metric"><span>Saídas previstas no mês</span><strong id="mScheduled" class="negative">R$ 0,00</strong></article>
       <article class="metric"><span>Gasto realmente seu</span><strong id="mOwn">R$ 0,00</strong></article>
       <article class="metric"><span>Saldo previsto</span><strong id="mBalance">R$ 0,00</strong></article>
     </div>
+    <div id="balanceBars" class="card section"></div>
+    <div id="mBalanceOptimistic" class="muted" style="padding:2px 4px"></div>
+
+    <div class="grid-2 section">
+      <article class="card">
+        <div class="card-head"><h2>Entradas por origem</h2></div>
+        <div id="incomeBreakdown"></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><h2>Empréstimos cedidos</h2></div>
+        <div class="loan-grid">
+          <div class="loan-box">
+            <span>A receber neste mês</span>
+            <strong id="mLoanReceivable" class="warning">R$ 0,00</strong>
+            <div class="field-note">Previsto para este mês, mas ainda não é certo que vai entrar.</div>
+          </div>
+          <div class="loan-box">
+            <span>Emprestado neste mês</span>
+            <strong id="mLoanGiven" class="negative">R$ 0,00</strong>
+            <div class="field-note">Novo dinheiro cedido a outras pessoas neste mês.</div>
+          </div>
+        </div>
+      </article>
+    </div>
 
     <article class="card section">
-      <div class="card-head"><div><h2>Pagamentos previstos no mês</h2><div class="muted">O total do "Pagamento previsto no mês", separado entre o que já foi pago e o que ainda falta pagar.</div></div></div>
+      <div class="card-head"><div><h2>Saídas previstas: pagas x não pagas</h2></div></div>
       <div id="paymentStatusBars"></div>
     </article>
 
-    <article class="card section">
-      <div class="card-head"><div><h2>Fluxo de caixa do mês</h2><div class="muted">As compras de cartão podem ter sido feitas em outro mês, mas entram aqui quando a despesa estiver prevista para pagamento neste mês.</div></div></div>
+    <details class="card section" open>
+      <summary><h2>Fluxo de caixa do mês</h2></summary>
+      <div class="muted" style="margin:6px 0 4px">As compras de cartão podem ter sido feitas em outro mês, mas entram aqui quando a despesa estiver prevista para pagamento neste mês.</div>
       <div class="row-actions" style="margin:8px 0"><button class="btn primary" data-cash-filter="all" onclick="setCashFilter('all')">Todos</button><button class="btn" data-cash-filter="paid" onclick="setCashFilter('paid')">Já pagos</button><button class="btn" data-cash-filter="pending" onclick="setCashFilter('pending')">Não pagos</button></div>
-      <div id="cashflowList"></div>
+      <div id="cashflowList" class="scroll-list"></div>
       <div id="cashflowSubtotal" class="muted" style="padding-top:8px"></div>
-    </article>
+    </details>
 
     <div class="grid-2">
       <article class="card">
-        <div class="card-head"><h2>Gastos por categoria</h2></div>
+        <div class="card-head"><h2>Gastos por categoria</h2><span id="categoryTotal" class="muted"></span></div>
         <div id="categoryBars"></div>
       </article>
       <article class="card">
@@ -75,19 +98,19 @@
       </article>
     </div>
 
-    <article class="card section">
-      <div class="card-head">
-        <h2>Pendências de reembolso</h2>
-        <button class="btn ghost" data-tab-link="transactions">Ver lançamentos</button>
-      </div>
+    <details class="card section">
+      <summary><h2>Pendências de reembolso <span id="receivableBadge" class="pill"></span></h2></summary>
+      <div class="row-actions end" style="margin-bottom:6px"><button class="btn ghost" data-tab-link="transactions">Ver lançamentos</button></div>
       <div id="receivableList"></div>
-    </article>
+    </details>
 
-    <article class="card section">
-      <div class="card-head"><h2>Últimos lançamentos</h2><button class="btn ghost" data-tab-link="transactions">Ver todos</button></div>
+    <details class="card section">
+      <summary><h2>Últimos lançamentos <span id="recentBadge" class="pill"></span></h2></summary>
+      <div class="row-actions end" style="margin-bottom:6px"><button class="btn ghost" data-tab-link="transactions">Ver todos</button></div>
       <div id="recentList"></div>
-    </article>
+    </details>
   </section>
+
 
   <section id="transactions" class="page hidden">
     <div class="page-head">
