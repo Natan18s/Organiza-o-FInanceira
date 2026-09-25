@@ -198,9 +198,24 @@
       <article class="card">
         <h2>Exportar / backup</h2>
         <p class="muted">Os dados continuam salvos no navegador. Faça backup para não depender de um único aparelho.</p>
-        <button class="btn primary" id="exportBackup">Exportar backup JSON</button>
-        <button class="btn" id="restoreBackup">Restaurar backup</button>
-        <input id="backupInput" type="file" accept=".json,application/json" class="hidden-file">
+        <div class="row-actions">
+          <button class="btn primary" id="exportBackup">Baixar arquivo de backup</button>
+          <button class="btn" id="shareBackup">Compartilhar backup</button>
+          <button class="btn" id="restoreBackup">Restaurar de um arquivo</button>
+        </div>
+        <input id="backupInput" type="file" class="hidden-file">
+        <div class="field-note">"Compartilhar" abre o menu de compartilhamento do aparelho (Drive, WhatsApp, Arquivos...), sem precisar depois procurar o arquivo baixado.</div>
+
+        <hr>
+        <h3>Copiar e colar (mais fácil entre celular e PC)</h3>
+        <p class="muted">Sem precisar mexer com arquivos: copie o backup aqui e cole no outro aparelho.</p>
+        <button class="btn" id="copyBackupText">Copiar backup para a área de transferência</button>
+        <textarea id="backupExportText" class="hidden-file" rows="3" readonly></textarea>
+        <div style="margin-top:14px">
+          <label>Colar backup para restaurar</label>
+          <textarea id="backupPasteText" rows="4" placeholder="Cole aqui o texto do backup copiado no outro aparelho"></textarea>
+          <div class="row-actions" style="margin-top:8px"><button class="btn primary" id="restoreFromPaste">Restaurar deste texto</button></div>
+        </div>
       </article>
     </div>
   </section>

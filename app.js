@@ -82,6 +82,9 @@ $("bulkPaymentDate").onclick=()=>openBulkPaymentModal();
 $("bulkClearPayment").onclick=clearBulkPaymentDate;
 $("clearSelection").onclick=()=>{selectedTxIds.clear();renderTransactions()};
 $("exportBackup").onclick=exportBackup;
+$("shareBackup").onclick=shareBackup;
+$("copyBackupText").onclick=copyBackupText;
+$("restoreFromPaste").onclick=restoreFromText;
 $("restoreBackup").onclick=()=>$("backupInput").click();
 $("backupInput").onchange=restoreBackup;
 
@@ -720,19 +723,63 @@ $("fileInput").onchange=e=>handleFile(e.target.files[0]);
 ["dragleave","drop"].forEach(ev=>$("dropZone").addEventListener(ev,e=>{e.preventDefault();$("dropZone").classList.remove("drag")}));
 $("dropZone").addEventListener("drop",e=>handleFile(e.dataTransfer.files[0]));
 
+function backupPayload(){ return JSON.stringify(data,null,2); }
 function exportBackup(){
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const blob=new Blob([backupPayload()],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`meu-controle-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("Backup exportado");
+}
+async function shareBackup(){
+  try{
+    const file=new File([backupPayload()],`meu-controle-backup-${today()}.json`,{type:"application/json"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Backup Meu Controle"}); return }
+  }catch(e){ if(e && e.name==="AbortError") return }
+  exportBackup();   // sem suporte a compartilhamento de arquivo: cai para o download normal
+}
+async function copyBackupText(){
+  const text=backupPayload();
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(text) }
+    else{ const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove() }
+    toast("Backup copiado. Cole em uma mensagem para você mesmo ou direto no outro aparelho.");
+  }catch{
+    $("backupExportText").value=text; $("backupExportText").classList.remove("hidden-file");
+    alert("Não consegui copiar automaticamente. Selecione o texto que apareceu na caixa e copie manualmente.");
+  }
+}
+// Junta o backup recebido (arquivo, texto colado...) aos dados atuais, preenchendo o que faltar, como o loadData() já faz ao abrir o app
+function applyBackup(x,sourceLabel){
+  if(!x || typeof x!=="object" || !Array.isArray(x.transactions) || !Array.isArray(x.cards) || !Array.isArray(x.people)){
+    alert("Esse backup não tem o formato esperado (faltam lançamentos, cartões ou pessoas)."); return false;
+  }
+  if(!confirm("Restaurar este backup vai substituir TODOS os dados deste aparelho. Deseja continuar?")) return false;
+  const merged=structuredClone(defaultData);
+  merged.transactions=(x.transactions||[]).map(t=>normalizeTransaction({...t}));
+  merged.cards=x.cards.length?x.cards:merged.cards;
+  merged.people=x.people.some(p=>p.id==="self")?x.people:[{id:"self",name:"Você"},...x.people];
+  merged.categories=[...new Set([...(x.categories||[]),...defaultData.categories])];
+  merged.rules=x.rules||[];
+  merged.importLog=x.importLog||[];
+  data=merged; save();
+  toast(`Backup restaurado${sourceLabel?" ("+sourceLabel+")":""}`);
+  return true;
 }
 function restoreBackup(){
   const f=$("backupInput").files[0];if(!f)return;
   const reader=new FileReader();
-  reader.onload=()=>{try{
-    const x=JSON.parse(reader.result);if(!x.transactions||!x.cards||!x.people)throw new Error("estrutura inválida");
-    data=x;save();toast("Backup restaurado");
-  }catch{alert("Backup inválido.")}};
+  reader.onload=()=>{
+    try{ applyBackup(JSON.parse(reader.result),"arquivo") }
+    catch(e){ alert("Não consegui ler esse arquivo como backup. Confira se é o .json exportado pelo próprio app.") }
+  };
+  reader.onerror=()=>alert("Não consegui abrir esse arquivo.");
   reader.readAsText(f);
   $("backupInput").value="";
+}
+function restoreFromText(){
+  const raw=$("backupPasteText").value.trim();
+  if(!raw){alert("Cole o texto do backup antes de restaurar.");return}
+  try{
+    if(applyBackup(JSON.parse(raw),"texto colado")) $("backupPasteText").value="";
+  }catch(e){ alert("Esse texto não é um backup válido. Confira se copiou tudo, do { inicial ao } final.") }
 }
 
 // Start
