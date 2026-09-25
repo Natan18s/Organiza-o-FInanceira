@@ -670,6 +670,22 @@ async function handleFile(file){
   if(!file)return;
   selectedImport=file;$("selectedFile").textContent=`Selecionado: ${file.name}`;
   $("importStatus").classList.add("hidden");
+  // Backup do próprio app (.json) solto aqui: restaura direto, em vez de tentar ler como extrato do banco
+  if(/\.json$/i.test(file.name)||file.type==="application/json"){
+    let parsed=null;
+    try{ parsed=JSON.parse(await file.text()) }catch{}
+    if(parsed && Array.isArray(parsed.transactions) && Array.isArray(parsed.cards) && Array.isArray(parsed.people)){
+      if(applyBackup(parsed,"arquivo solto em Importar")){
+        $("importStatus").textContent="Esse arquivo era um backup do próprio app — os dados foram restaurados direto, sem passar pela importação de extrato.";
+        $("importStatus").classList.remove("hidden");
+      }
+      selectedImport=null;$("selectedFile").textContent="Nenhum arquivo selecionado";
+      return;
+    }
+    $("importStatus").textContent="Esse .json não tem o formato de um extrato nem de um backup deste app.";
+    $("importStatus").classList.remove("hidden");
+    return;
+  }
   try{
     const result=await parseImport(file);
     const card=ensureImportedCard(result.rows);
