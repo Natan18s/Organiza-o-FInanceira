@@ -69,3 +69,14 @@ details.card summary .pill{font-weight:600}
 .loan-box span{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}
 .loan-box strong{font-size:19px}
 @media(max-width:680px){.metric-grid-4{grid-template-columns:repeat(2,1fr)}.loan-grid{grid-template-columns:1fr}}
+
+.bar-click{cursor:pointer;border-radius:8px;padding:4px;margin:7px -4px;transition:background .12s}.bar-click:hover{background:#eef2ff}
+.cashflow-link{cursor:pointer}.cashflow-link:hover b{text-decoration:underline}
+.detail-table table{min-width:0}
+tr.row-highlight{animation:rowFlash 2.8s ease}
+@keyframes rowFlash{0%{background:#fde68a}70%{background:#fde68a}100%{background:transparent}}
+.activity-item{display:grid;grid-template-columns:26px 1fr auto;gap:9px;align-items:start;padding:10px 4px;border-bottom:1px solid var(--line)}
+.activity-item:last-child{border-bottom:0}
+.activity-item.clickable{cursor:pointer;border-radius:8px}.activity-item.clickable:hover{background:#f3f4f6}
+.activity-icon{font-size:15px;line-height:1.5}
+.activity-when{font-size:11px;white-space:nowrap}

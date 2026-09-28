@@ -17,7 +17,8 @@ const defaultData = {
     {id:"r3", keyword:"posto", category:"Transporte"},
     {id:"r4", keyword:"mercado", category:"Alimentação"}
   ],
-  importLog: []
+  importLog: [],
+  activityLog: []
 };
 
 let data;
@@ -45,6 +46,7 @@ function loadData(){
       saved.categories=[...new Set([...(saved.categories||[]),...defaultData.categories])];
       saved.rules ||= [];
       saved.importLog ||= [];
+      saved.activityLog ||= [];
       saved.people=saved.people.some(p=>p.id==="self") ? saved.people : [{id:"self",name:"Você"},...saved.people];
       saved.transactions=saved.transactions.map(t=>normalizeTransaction(t));
       return saved;
@@ -130,16 +132,12 @@ function renderDashboard(){
   const loanReceivable=loanReceivableForMonth(month);
   const loanGiven=loanGivenForMonth(month);
   const projected=income-scheduled;
-  const projectedOptimistic=projected+loanReceivable;
 
   $("mIncome").textContent=fmtMoney(income);
   $("mScheduled").textContent=fmtMoney(scheduled);
   $("mOwn").textContent=fmtMoney(own);
   $("mBalance").textContent=fmtMoney(projected);
   $("mBalance").className=""+(projected>=0?"positive":"negative");
-  $("mBalanceOptimistic").textContent = loanReceivable>0.004
-    ? `Se os ${fmtMoney(loanReceivable)} previstos de empréstimos entrarem, o saldo sobe para ${fmtMoney(projectedOptimistic)}. Não contamos esse valor no saldo principal porque ainda não é certo.`
-    : "";
 
   // Balanço visual: entradas x saídas previstas do mês, lado a lado
   const maxBal=Math.max(income,scheduled,1);
@@ -158,18 +156,22 @@ function renderDashboard(){
   $("mLoanReceivable").textContent=fmtMoney(loanReceivable);
   $("mLoanGiven").textContent=fmtMoney(loanGiven);
 
+  // Gastos por categoria (clicável: abre a lista de lançamentos da categoria)
   const cat={}; txPurchase.filter(t=>t.type==="expense").forEach(t=>(t.splits||[]).forEach(s=>cat[s.category]=(cat[s.category]||0)+Number(s.amount||0)));
   const catArr=Object.entries(cat).sort((a,b)=>b[1]-a[1]);
   const max=catArr[0]?.[1]||1;
   $("categoryTotal").textContent=gross>0?`Total do mês: ${fmtMoney(gross)}`:"";
-  $("categoryBars").innerHTML=catArr.length ? catArr.slice(0,10).map(([k,v])=>{const pct=Math.round(v/max*100);return `<div class="bar-row"><div class="bar-label"><span>${esc(k)} (${pct}%)</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>`}).join("") : '<div class="empty">Sem gastos neste mês.</div>';
+  $("categoryBars").innerHTML=catArr.length ? catArr.slice(0,10).map(([k,v])=>{const pct=Math.round(v/max*100);return `<div class="bar-row bar-click" data-cat="${esc(k)}" title="Ver lançamentos"><div class="bar-label"><span>${esc(k)} (${pct}%)</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>`}).join("") : '<div class="empty">Sem gastos neste mês.</div>';
+  $("categoryBars").querySelectorAll("[data-cat]").forEach(el=>el.onclick=()=>showCategoryDetail(el.dataset.cat));
 
+  // Cartões (clicável: abre as compras do cartão)
   const cardsCat={}; txPurchase.filter(t=>t.type==="expense"&&t.cardId).forEach(t=>cardsCat[t.cardId]=(cardsCat[t.cardId]||0)+t.value);
   const cArr=Object.entries(cardsCat).sort((a,b)=>b[1]-a[1]);
   $("cardBars").innerHTML=cArr.length ? cArr.map(([id,v])=>{
     const c=data.cards.find(x=>x.id===id), pct=Math.min(100,v/(c?.limit||Math.max(v,1))*100);
-    return `<div class="bar-row"><div class="bar-label"><span>${esc(c?.name||"Cartão")} (${Math.round(pct)}%)</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+    return `<div class="bar-row bar-click" data-card="${esc(id)}" title="Ver compras"><div class="bar-label"><span>${esc(c?.name||"Cartão")} (${Math.round(pct)}%)</span><b>${fmtMoney(v)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
   }).join("") : '<div class="empty">Sem compras em cartão neste mês.</div>';
+  $("cardBars").querySelectorAll("[data-card]").forEach(el=>el.onclick=()=>showCardDetail(el.dataset.card));
 
   // Pagamentos previstos do mês separados por status
   const sched=scheduledPaymentsForMonth(month);
@@ -181,20 +183,21 @@ function renderDashboard(){
     ? `<div class="bar-row"><div class="bar-label"><span>Saídas previstas já pagas (${paidPct}%)</span><b class="positive">${fmtMoney(paidSum)}</b></div><div class="bar"><i style="width:${paidPct}%;background:#15803d"></i></div></div><div class="bar-row"><div class="bar-label"><span>Saídas previstas não pagas (${pendingPct}%)</span><b class="warning">${fmtMoney(pendingSum)}</b></div><div class="bar"><i style="width:${pendingPct}%;background:#b45309"></i></div></div>`
     : '<div class="empty">Nenhuma saída prevista neste mês.</div>';
 
-  // Fluxo de caixa com filtro (Todos / Pagos / Não pagos) e subtotal
+  // Fluxo de caixa com filtro (Todos / Pagos / Não pagos); clicar no item leva ao lançamento
   const flows=sched.slice().sort((a,b)=>a.paymentDate.localeCompare(b.paymentDate)||(a.createdAt||0)-(b.createdAt||0));
   const shownFlows=flows.filter(t=>cashFilter==="all"||(cashFilter==="paid"?isPaid(t):!isPaid(t)));
   const cashItems=[];
-  if(cashFilter==="all") txPurchase.filter(t=>t.type==="income").forEach(t=>cashItems.push({date:t.date,type:"income",title:t.description,value:t.value,status:t.source==="reimbursement"?(t.sourceCategory===LOAN_CATEGORY?"Empréstimo devolvido":"Reembolso"):"Entrada"}));
-  shownFlows.forEach(t=>cashItems.push({id:t.id,paid:isPaid(t),date:t.paymentDate,type:"expense",title:t.description,value:t.value,status:isPaid(t)?"Pago":"Previsto",card:t.cardId?data.cards.find(c=>c.id===t.cardId)?.name:""}));
+  if(cashFilter==="all") txPurchase.filter(t=>t.type==="income").forEach(t=>cashItems.push({txId:t.id,date:t.date,type:"income",title:t.description,value:t.value,status:t.source==="reimbursement"?(t.sourceCategory===LOAN_CATEGORY?"Empréstimo devolvido":"Reembolso"):"Entrada"}));
+  shownFlows.forEach(t=>cashItems.push({txId:t.id,id:t.id,paid:isPaid(t),date:t.paymentDate,type:"expense",title:t.description,value:t.value,status:isPaid(t)?"Pago":"Previsto",card:t.cardId?data.cards.find(c=>c.id===t.cardId)?.name:""}));
   cashItems.sort((a,b)=>a.date.localeCompare(b.date));
   document.querySelectorAll("[data-cash-filter]").forEach(b=>b.classList.toggle("primary",b.dataset.cashFilter===cashFilter));
-  $("cashflowList").innerHTML=cashItems.length ? cashItems.map(x=>`<div class="cashflow-item"><div class="cashflow-main"><span class="cashflow-dot ${x.type}"></span><div><b>${esc(x.title)}</b><div class="muted">${fmtDate(x.date)} · ${esc(x.status)}${x.card?` · ${esc(x.card)}`:""}</div>${x.id?`<button class="btn ghost" style="margin-top:6px;padding:4px 9px;font-size:12px" onclick="togglePaid('${x.id}')">${x.paid?"Voltar para previsto":"Marcar como pago"}</button>`:""}</div></div><strong class="${x.type==="expense"?"negative":"positive"}">${x.type==="expense"?"-":"+"} ${fmtMoney(x.value)}</strong></div>`).join("") : '<div class="empty">Nenhuma entrada ou saída prevista neste mês.</div>';
+  $("cashflowList").innerHTML=cashItems.length ? cashItems.map(x=>`<div class="cashflow-item"><div class="cashflow-main"><span class="cashflow-dot ${x.type}"></span><div><div class="cashflow-link" onclick="goToTransaction('${x.txId}')" title="Ver em Lançamentos"><b>${esc(x.title)}</b><div class="muted">${fmtDate(x.date)} · ${esc(x.status)}${x.card?` · ${esc(x.card)}`:""}</div></div>${x.id?`<button class="btn ghost" style="margin-top:6px;padding:4px 9px;font-size:12px" onclick="togglePaid('${x.id}')">${x.paid?"Voltar para previsto":"Marcar como pago"}</button>`:""}</div></div><strong class="${x.type==="expense"?"negative":"positive"}">${x.type==="expense"?"-":"+"} ${fmtMoney(x.value)}</strong></div>`).join("") : '<div class="empty">Nenhuma entrada ou saída prevista neste mês.</div>';
   const sub=shownFlows.reduce((sum,t)=>sum+t.value,0);
   $("cashflowSubtotal").innerHTML=cashFilter==="all"?"":`Subtotal ${cashFilter==="paid"?"das saídas já pagas":"das saídas não pagas"}: <b>${fmtMoney(sub)}</b>`;
 
+  // Pendências de reembolso: só as do mês visto (pelo mês do pagamento previsto, o mesmo critério do fluxo de caixa)
   const pend=[];
-  data.transactions.filter(t=>t.type==="expense").forEach(t=>(t.splits||[]).forEach((s,idx)=>{
+  data.transactions.filter(t=>t.type==="expense" && (t.paymentDate||t.date).slice(0,7)===month).forEach(t=>(t.splits||[]).forEach((s,idx)=>{
     if(s.ownerId!=="self" && s.reimbursed!==true) pend.push({t,s,idx});
   }));
   const pendTotal=pend.reduce((s,{s:x})=>s+Number(x.amount||0),0);
@@ -202,13 +205,17 @@ function renderDashboard(){
   $("receivableList").innerHTML=pend.length ? pend.map(({t,s,idx})=>{
     const p=data.people.find(x=>x.id===s.ownerId);
     return `<div class="reimbursed-row"><div><b>${esc(p?.name||"Outra pessoa")}</b> · ${fmtMoney(s.amount)}${s.category===LOAN_CATEGORY?' <span class="tag">Empréstimo</span>':""}<div class="muted">${esc(t.description)} · compra ${fmtDate(t.date)} · pagamento ${fmtDate(t.paymentDate||t.date)}</div></div><button class="btn" onclick="markReimbursement('${t.id}',${idx})">Marcar como recebido</button></div>`;
-  }).join("") : '<div class="empty">Nenhum reembolso pendente.</div>';
+  }).join("") : '<div class="empty">Nenhum reembolso pendente neste mês.</div>';
 
-  const recent=txPurchase.slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt||0)-(a.createdAt||0)).slice(0,7);
-  $("recentBadge").textContent=recent.length?String(recent.length):"0";
-  $("recentList").innerHTML=recent.length ? `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th class="right">Valor</th></tr></thead><tbody>${recent.map(t=>{const label=t.type==="expense"?"Gasto":t.type==="income"?(t.source==="reimbursement"?(t.sourceCategory===LOAN_CATEGORY?"Empréstimo devolvido":"Reembolso"):"Entrada"):"Pagamento de cartão";const cls=t.type==="expense"?"negative":"positive";return `<tr><td>${fmtDate(t.date)}</td><td>${esc(t.description)}</td><td>${label}</td><td class="right ${cls}">${t.type==="expense"?"-":"+"} ${fmtMoney(t.value)}</td></tr>`}).join("")}</tbody></table></div>` : '<div class="empty">Nenhum lançamento.</div>';
+  // Últimos lançamentos: registro do que foi feito (independe do mês), do mais novo para o mais antigo
+  const log=data.activityLog||[];
+  const fmtWhen=at=>{const d=new Date(at);return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};
+  $("activityBadge").textContent=String(log.length);
+  $("activityList").innerHTML=log.length ? log.slice(0,100).map(a=>{
+    const exists=a.txId&&data.transactions.some(t=>t.id===a.txId);
+    return `<div class="activity-item${exists?" clickable":""}"${exists?` onclick="goToTransaction('${a.txId}')" title="Ver em Lançamentos"`:""}><span class="activity-icon">${ACTIVITY_ICONS[a.kind]||"•"}</span><div class="activity-main"><b>${esc(a.text)}</b><div class="muted">${esc(a.detail||"")}</div></div><div class="activity-when muted">${fmtWhen(a.at)}</div></div>`;
+  }).join("")+(log.length>100?`<div class="muted" style="padding:8px 0">Mostrando os 100 mais recentes de ${log.length}.</div>`:"") : '<div class="empty">Nenhuma atividade registrada ainda. O que você lançar, editar ou excluir daqui para frente aparece aqui.</div>';
 }
-
 function scheduledPaymentsForMonth(m){return data.transactions.filter(t=>t.type==="expense" && (t.paymentDate||t.date).slice(0,7)===m);}
 function nextCardPaymentDate(cardId, baseDate=today()){
   const card=data.cards.find(c=>c.id===cardId);
@@ -264,9 +271,11 @@ function updateBulkBar(){
 }
 function renderTransactions(){
   const m=$("txMonth").value||month,q=($("txSearch").value||"").toLowerCase(),type=$("txType").value;
-  let arr=data.transactions.filter(t=>t.date.slice(0,7)===m && (!type||t.type===type));
+  // mostra o gasto no mês da compra e também no mês do pagamento previsto (ex.: compra no crédito paga no mês seguinte)
+  const inMonth=t=>t.date.slice(0,7)===m || (t.type==="expense" && (t.paymentDate||t.date).slice(0,7)===m);
+  let arr=data.transactions.filter(t=>inMonth(t) && (!type||t.type===type));
   if(q) arr=arr.filter(t=>(t.description+" "+(t.splits||[]).map(s=>s.category).join(" ")+" "+(t.notes||"")).toLowerCase().includes(q));
-  arr.sort((a,b)=>b.date.localeCompare(a.date));
+  arr.sort(byNewest);
   const visibleIds=new Set(arr.map(t=>t.id));
   [...selectedTxIds].forEach(id=>{if(!visibleIds.has(id))selectedTxIds.delete(id)});
   const allExpenses=arr.filter(t=>t.type==="expense");
@@ -275,9 +284,9 @@ function renderTransactions(){
     const par=t.installments>1?`${t.installmentNo||1}/${t.installments}`:"—";
     const val=t.type==="expense"?`- ${fmtMoney(t.value)}`:`+ ${fmtMoney(t.value)}`;
     const cls=t.type==="expense"?"negative":"positive";
-    return `<tr>
+    return `<tr id="tx-${t.id}">
       <td>${t.type==="expense"?`<input class="tx-check" type="checkbox" value="${t.id}" ${selectedTxIds.has(t.id)?"checked":""} onchange="toggleSelect('${t.id}',this.checked)">`:""}</td>
-      <td>${fmtDate(t.date)}</td><td><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}</td>
+      <td>${fmtDate(t.date)}</td><td><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}${t.type==="expense"&&t.date.slice(0,7)!==m?`<div><span class="tag">Compra de ${fmtMonthLabel(t.date)} · pagamento neste mês</span></div>`:""}</td>
       <td>${t.type==="expense"?categoryLabels(t):t.source==="reimbursement"?'<span class="pill">Reembolso</span>':"—"}</td>
       <td>${paymentLabel(t)}</td><td>${peopleLabels(t)}</td><td>${paymentDateLabel(t)}</td><td>${par}</td>
       <td class="right ${cls}">${val}</td>
@@ -291,12 +300,12 @@ function openBulkPaymentModal(){
   if(!expenses.length){alert("Selecione pelo menos um gasto.");return}
   const suggested=expenses.length===1?(expenses[0].paymentDate||nextCardPaymentDate(expenses[0].cardId,expenses[0].date)):(month+"-19");
   openModal("Definir pagamento previsto",`<form id="bulkPayForm"><p>Você selecionou <b>${expenses.length}</b> gasto(s). A data abaixo será aplicada a todos.</p><div><label>Data de pagamento</label><input name="paymentDate" type="date" value="${suggested}" required></div><div style="margin-top:10px"><label>Status</label><select name="status"><option value="planned">Pagamento previsto</option><option value="paid">Já pago</option></select></div><div class="row-actions end" style="margin-top:15px"><button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary">Aplicar aos selecionados</button></div></form>`);
-  $("bulkPayForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);expenses.forEach(t=>{t.paymentDate=f.get("paymentDate");t.paymentStatus=f.get("status")});selectedTxIds.clear();closeModal();save();toast(`Pagamento previsto aplicado a ${expenses.length} gasto(s)`) };
+  $("bulkPayForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);expenses.forEach(t=>{t.paymentDate=f.get("paymentDate");t.paymentStatus=f.get("status")});logActivity("bulk",`Pagamento previsto definido em ${expenses.length} gasto(s)`,`Data ${fmtDate(f.get("paymentDate"))} · ${f.get("status")==="paid"?"já pago":"previsto"} · ${expenses.slice(0,3).map(t=>t.description).join(", ")}${expenses.length>3?"…":""}`);selectedTxIds.clear();closeModal();save();toast(`Pagamento previsto aplicado a ${expenses.length} gasto(s)`) };
 }
 function clearBulkPaymentDate(){
   const expenses=[...selectedTxIds].map(id=>data.transactions.find(t=>t.id===id)).filter(t=>t?.type==="expense");
   if(!expenses.length)return;
-  expenses.forEach(t=>{t.paymentDate=t.date;t.paymentStatus="paid"});selectedTxIds.clear();save();toast("Previsão de pagamento removida");
+  expenses.forEach(t=>{t.paymentDate=t.date;t.paymentStatus="paid"});logActivity("bulk",`Previsão de pagamento removida de ${expenses.length} gasto(s)`,expenses.slice(0,3).map(t=>t.description).join(", ")+(expenses.length>3?"…":""));selectedTxIds.clear();save();toast("Previsão de pagamento removida");
 }
 
 function renderCards(){
@@ -308,10 +317,64 @@ function renderCards(){
     return `<article class="card-mini"><h3>${esc(c.name)}</h3><div class="muted">Compras no mês</div><div class="big">${fmtMoney(total)}</div><div class="muted">Pagamento previsto no mês: <b>${fmtMoney(toPay)}</b></div><div class="muted">Fecha dia ${c.closing} · vence dia ${c.due}</div>${c.limit?`<div class="bar-row"><div class="bar-label"><span>Limite</span><span>${fmtMoney(c.limit)}</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>`:""}<div class="row-actions"><button class="btn" onclick="openCardModal('${c.id}')">Editar</button><button class="btn ghost" onclick="deleteCard('${c.id}')">Excluir</button></div></article>`;
   }).join("");
 }
+const ACTIVITY_ICONS={create:"➕",edit:"✏️",delete:"🗑️",paid:"✅",unpaid:"↩️",received:"💰",import:"📥",restore:"♻️",bulk:"📅"};
+function logActivity(kind,text,detail="",txId=""){
+  data.activityLog=data.activityLog||[];
+  data.activityLog.unshift({id:uid(),at:Date.now(),kind,text,detail,txId});
+  if(data.activityLog.length>300) data.activityLog.length=300;
+}
+// "Para onde foi" um gasto: categorias, forma/cartão, pagamento previsto e pessoas envolvidas
+function expenseDestination(t){
+  const cats=[...new Set((t.splits||[]).map(s=>s.category))].join(", ");
+  const others=[...new Set((t.splits||[]).filter(s=>s.ownerId!=="self").map(s=>data.people.find(p=>p.id===s.ownerId)?.name||"outra pessoa"))];
+  const way=t.cardId?(data.cards.find(c=>c.id===t.cardId)?.name||"Cartão"):(METHODS[t.method]||"Pix / débito / dinheiro");
+  const parts=[`Categoria: ${cats||"—"}`,`Forma: ${way}`,`Pagamento ${t.paymentStatus==="paid"?"feito":"previsto"} em ${fmtDate(t.paymentDate||t.date)}`];
+  if(others.length) parts.push(`Com: ${others.join(", ")}`);
+  return parts.join(" · ");
+}
+const fmtMonthLabel=m=>m.slice(5,7)+"/"+m.slice(0,4);
+const byNewest=(a,b)=>b.date.localeCompare(a.date)||(b.createdAt||0)-(a.createdAt||0);
+function defaultEntryDate(){ return today().slice(0,7)===month ? today() : `${month}-01`; }   // abre o calendário no mês que está sendo visto
+
+// Vai para a aba Lançamentos e destaca a linha do lançamento
+function goToTransaction(id){
+  const t=data.transactions.find(x=>x.id===id);
+  if(!t){toast("Esse lançamento não existe mais.");return}
+  closeModal();
+  $("txSearch").value="";$("txType").value="";
+  const inView=t.date.slice(0,7)===month||(t.type==="expense"&&(t.paymentDate||t.date).slice(0,7)===month);
+  if(!inView) setMonth(t.date.slice(0,7));
+  switchTab("transactions");
+  renderTransactions();
+  const row=$("tx-"+id);
+  if(row){row.scrollIntoView({block:"center",behavior:"smooth"});row.classList.add("row-highlight");setTimeout(()=>row.classList.remove("row-highlight"),2800)}
+}
+function detailTable(rows,valueOf){
+  if(!rows.length) return '<div class="empty">Nenhum lançamento.</div>';
+  const body=rows.map(t=>{
+    const v=valueOf(t), par=t.installments>1?`${t.installmentNo||1}/${t.installments}`:"—";
+    const sub=Math.abs(v-t.value)>0.004?`<div class="muted">de ${fmtMoney(t.value)}</div>`:"";
+    return `<tr><td>${fmtDate(t.date)}</td><td><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}</td><td>${paymentLabel(t)}</td><td>${peopleLabels(t)}</td><td>${paymentDateLabel(t)}</td><td>${par}</td><td class="right negative">- ${fmtMoney(v)}${sub}</td></tr>`;
+  }).join("");
+  return `<div class="table-wrap detail-table"><table><thead><tr><th>Data</th><th>Descrição</th><th>Forma</th><th>Responsável</th><th>Pagamento previsto</th><th>Parcelas</th><th class="right">Valor</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function showCategoryDetail(cat){
+  const partOf=t=>(t.splits||[]).filter(s=>s.category===cat).reduce((a,x)=>a+Number(x.amount||0),0);
+  const rows=txForMonth(month).filter(t=>t.type==="expense"&&(t.splits||[]).some(s=>s.category===cat)).sort(byNewest);
+  const total=rows.reduce((s,t)=>s+partOf(t),0);
+  openModal(`${cat} · compras de ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · total <b>${fmtMoney(total)}</b></div>`+detailTable(rows,partOf));
+}
+function showCardDetail(id){
+  const c=data.cards.find(x=>x.id===id);
+  const rows=txForMonth(month).filter(t=>t.type==="expense"&&t.cardId===id).sort(byNewest);
+  const total=rows.reduce((s,t)=>s+t.value,0);
+  openModal(`${c?.name||"Cartão"} · compras de ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · total <b>${fmtMoney(total)}</b></div>`+detailTable(rows,t=>t.value));
+}
 function setCashFilter(f){ cashFilter=f; renderDashboard(); }
 function togglePaid(id){
   const t=data.transactions.find(x=>x.id===id); if(!t||t.type!=="expense")return;
   t.paymentStatus=t.paymentStatus==="paid"?"planned":"paid";
+  logActivity(t.paymentStatus==="paid"?"paid":"unpaid",`${t.paymentStatus==="paid"?"Marcado como pago":"Voltou para previsto"}: ${t.description}`,`${fmtMoney(t.value)} · pagamento em ${fmtDate(t.paymentDate||t.date)}`,t.id);
   save(); toast(t.paymentStatus==="paid"?"Marcado como pago":"Voltou para previsto");   // save() recalcula o Resumo
 }
 function renderPeople(){
@@ -363,7 +426,7 @@ function transactionForm(t=null,type="expense"){
   const status=t?.paymentStatus||(isCreditMethod(method)?"planned":"paid");
   const lock=t?'data-lock="1" disabled':"";
   return `<form id="txForm"><div class="form-grid">
-    <div><label>Data da compra / lançamento</label><input name="date" id="txDate" type="date" value="${t?.date||today()}" required></div>
+    <div><label>Data da compra / lançamento</label><input name="date" id="txDate" type="date" value="${t?.date||defaultEntryDate()}" required></div>
     <div><label id="txValueLabel">Valor total</label><input name="value" id="txValue" type="number" min="0" step="0.01" value="${t?.value??""}" required><div class="field-note" id="valueNote"></div></div>
     <div class="full"><label>Descrição</label><input name="description" id="txDescription" value="${esc(t?.description||"")}" placeholder="Ex.: Mercado, Uber, conta de luz..." required></div>
     ${isExpense?`
@@ -493,20 +556,44 @@ function saveExpenseFromForm(existingId){
   const base={date,description:f.get("description"),value,method,cardId:credit?f.get("cardId"):"",paymentDate:credit?(f.get("paymentDate")||date):date,paymentStatus:f.get("paymentStatus")||(credit?"planned":"paid"),notes:f.get("notes")||"",type:"expense",splits};
   if(existingId){
     const old=data.transactions.find(t=>t.id===existingId);
-    data.transactions=data.transactions.map(t=>t.id===existingId?{...old,...base}:t);toast("Gasto atualizado");
+    data.transactions=data.transactions.map(t=>t.id===existingId?{...old,...base}:t);
+    logActivity("edit",`Gasto editado: ${base.description}`,`${fmtMoney(base.value)} · ${expenseDestination({...old,...base})}`,existingId);
+    toast("Gasto atualizado");
   }else if(method==="installment"){
     const rem=n-start+1,totalCents=Math.round(value*100),per=Math.floor(totalCents/n),first=f.get("firstMonth")||date.slice(0,7),day=date.slice(8,10),pay=base.paymentDate;
     for(let i=0;i<rem;i++){
       const k=start+i,cents=k===n?totalCents-per*(n-1):per;
       data.transactions.push({...base,id:uid(),createdAt:Date.now()+i,value:cents/100,splits:scaleSplits(splits,cents/100,value),date:shiftMonthDate(first,day,i),paymentDate:shiftMonthDate(pay.slice(0,7),pay.slice(8,10),i),paymentStatus:i===0?base.paymentStatus:"planned",installments:n,installmentNo:k});
     }
+    const firstTx=data.transactions[data.transactions.length-rem];
+    logActivity("create",`Gasto parcelado: ${base.description}`,`${n}x · lançadas ${rem} (${start}/${n} a ${n}/${n}) · total ${fmtMoney(value)} · ${expenseDestination(firstTx)}`,firstTx.id);
     toast(`${rem} parcela(s) lançada(s)`);
   }else{
-    data.transactions.push({...base,id:uid(),createdAt:Date.now(),installments:1,installmentNo:1});toast("Gasto salvo");
+    const nt={...base,id:uid(),createdAt:Date.now(),installments:1,installmentNo:1};
+    data.transactions.push(nt);
+    logActivity("create",`Novo gasto: ${base.description}`,`${fmtMoney(value)} · ${expenseDestination(nt)}`,nt.id);
+    toast("Gasto salvo");
   }
   closeModal();save();
 }
-function saveIncomeFromForm(existingId){const f=new FormData($("txForm")),value=Number(f.get("value")||0);if(!value){alert("Informe um valor.");return}const base={date:f.get("date"),description:f.get("description"),value,type:"income",source:f.get("incomeSource")||"normal",notes:f.get("notes")||""};if(existingId){const old=data.transactions.find(t=>t.id===existingId);data.transactions=data.transactions.map(t=>t.id===existingId?{...old,...base}:t);toast("Entrada atualizada")}else{data.transactions.push({...base,id:uid(),createdAt:Date.now()});toast("Entrada registrada")}closeModal();save();}
+function saveIncomeFromForm(existingId){
+  const f=new FormData($("txForm")),value=Number(f.get("value")||0);
+  if(!value){alert("Informe um valor.");return}
+  const base={date:f.get("date"),description:f.get("description"),value,type:"income",source:f.get("incomeSource")||"normal",notes:f.get("notes")||""};
+  const where=`${base.source==="reimbursement"?"Reembolso recebido":"Entrada normal"} · entra em ${fmtDate(base.date)} (${fmtMonthLabel(base.date)})`;
+  if(existingId){
+    const old=data.transactions.find(t=>t.id===existingId);
+    data.transactions=data.transactions.map(t=>t.id===existingId?{...old,...base}:t);
+    logActivity("edit",`Entrada editada: ${base.description}`,`${fmtMoney(value)} · ${where}`,existingId);
+    toast("Entrada atualizada");
+  }else{
+    const nt={...base,id:uid(),createdAt:Date.now()};
+    data.transactions.push(nt);
+    logActivity("create",`Nova entrada: ${base.description}`,`${fmtMoney(value)} · ${where}`,nt.id);
+    toast("Entrada registrada");
+  }
+  closeModal();save();
+}
 function shiftMonthDate(firstMonth, day, offset){
   const [y,m]=firstMonth.split("-").map(Number);
   const last=new Date(y,m+offset,0).getDate();   // último dia do mês alvo (evita 31/02 virar março)
@@ -518,7 +605,13 @@ function editTransaction(id){
   else if(t.type==="income")openTransactionModal("income",t);
   else alert("Pagamento de cartão importado é um ajuste da fatura e, nesta versão, deve ser excluído/reimportado se necessário.");
 }
-function removeTransaction(id){if(!confirm("Excluir este lançamento?"))return;data.transactions=data.transactions.filter(t=>t.id!==id);save();toast("Lançamento excluído")}
+function removeTransaction(id){
+  const t=data.transactions.find(x=>x.id===id); if(!t)return;
+  if(!confirm("Excluir este lançamento?"))return;
+  data.transactions=data.transactions.filter(x=>x.id!==id);
+  logActivity("delete",`Excluído: ${t.description}`,`${t.type==="income"?"Entrada":t.type==="expense"?"Gasto":"Pagamento de cartão"} de ${fmtMoney(t.value)} · data ${fmtDate(t.date)}`);
+  save();toast("Lançamento excluído");
+}
 function markReimbursement(txId,splitIndex){
   const t=data.transactions.find(x=>x.id===txId);if(!t)return;
   const s=t.splits?.[splitIndex];if(!s||s.ownerId==="self")return;
@@ -526,7 +619,9 @@ function markReimbursement(txId,splitIndex){
   s.reimbursed=true;
   const p=data.people.find(x=>x.id===s.ownerId);
   const isLoan=s.category===LOAN_CATEGORY;
-  data.transactions.push({id:uid(),createdAt:Date.now(),date:today(),description:`${isLoan?"Empréstimo devolvido":"Reembolso"}: ${t.description}`,value:Number(s.amount),type:"income",source:"reimbursement",sourceCategory:s.category,notes:`Recebido de ${p?.name||"outra pessoa"}`,linkedTransactionId:txId,linkedSplitId:s.id});
+  const inc={id:uid(),createdAt:Date.now(),date:today(),description:`${isLoan?"Empréstimo devolvido":"Reembolso"}: ${t.description}`,value:Number(s.amount),type:"income",source:"reimbursement",sourceCategory:s.category,notes:`Recebido de ${p?.name||"outra pessoa"}`,linkedTransactionId:txId,linkedSplitId:s.id};
+  data.transactions.push(inc);
+  logActivity("received",`${isLoan?"Empréstimo devolvido":"Reembolso recebido"} de ${p?.name||"outra pessoa"}: ${fmtMoney(s.amount)}`,`Referente a "${t.description}" (${s.category}) · entrou como entrada em ${fmtDate(inc.date)}`,inc.id);
   save();toast("Reembolso registrado");
 }
 
@@ -729,6 +824,7 @@ $("confirmImport").onclick=()=>{
     }
   });
   data.importLog.push({id:uid(),file:selectedImport?.name||"",date:new Date().toISOString(),count:pendingImport.length});
+  logActivity("import",`Importação: ${selectedImport?.name||"arquivo"}`,`${pendingImport.length} lançamento(s) novos importados`);
   pendingImport=[];selectedImport=null;$("importPreview").classList.add("hidden");$("selectedFile").textContent="Nenhum arquivo selecionado";save();toast("Importação concluída");
 };
 $("cancelImport").onclick=()=>{pendingImport=[];$("importPreview").classList.add("hidden")};
@@ -775,7 +871,10 @@ function applyBackup(x,sourceLabel){
   merged.categories=[...new Set([...(x.categories||[]),...defaultData.categories])];
   merged.rules=x.rules||[];
   merged.importLog=x.importLog||[];
-  data=merged; save();
+  merged.activityLog=x.activityLog||[];
+  data=merged;
+  logActivity("restore",`Backup restaurado (${sourceLabel||"arquivo"})`,`${merged.transactions.length} lançamento(s) carregados`);
+  save();
   toast(`Backup restaurado${sourceLabel?" ("+sourceLabel+")":""}`);
   return true;
 }
