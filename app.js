@@ -1,6 +1,6 @@
 
-const DB_KEY = "meu-controle-v2";
-const APP_VERSION = 2;
+const DB_KEY = "meu-controle-v11";
+const APP_VERSION = 11;
 
 const defaultData = {
   version: APP_VERSION,
