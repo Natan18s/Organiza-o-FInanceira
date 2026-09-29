@@ -32,33 +32,36 @@
     <button class="tab" data-tab="categories">Categorias</button>
     <button class="tab" data-tab="rules">Regras</button>
     <button class="tab" data-tab="import">Importar</button>
+    <button class="tab" data-tab="tutorial">Tutorial</button>
   </nav>
 
   <section id="dashboard" class="page">
     <div class="page-head">
       <div>
         <h1>Resumo</h1>
-        <p class="muted">Entradas, saídas previstas e o que ainda depende de outras pessoas te pagarem de volta.</p>
+        <p class="muted">Entradas, saídas previstas e o que ainda depende de outras pessoas te pagarem de volta. Veja explicações completas na aba <a href="javascript:void(0)" onclick="switchTab('tutorial')">Tutorial</a>.</p>
       </div>
       <input id="dashboardMonth" type="month" class="month">
     </div>
     <div id="backupReminder" class="reminder-banner hidden"></div>
 
     <div class="metric-grid metric-grid-4">
-      <article class="metric"><span>Entradas no mês</span><strong id="mIncome">R$ 0,00</strong></article>
-      <article class="metric"><span>Saídas previstas no mês</span><strong id="mScheduled" class="negative">R$ 0,00</strong></article>
-      <article class="metric"><span>Gasto realmente seu</span><strong id="mOwn">R$ 0,00</strong></article>
-      <article class="metric"><span>Saldo previsto</span><strong id="mBalance">R$ 0,00</strong></article>
+      <article class="metric"><span>Entradas no mês</span><strong id="mIncome">R$ 0,00</strong><div class="metric-note">Tudo que entrou de dinheiro neste mês: salário, reembolsos, devolução de empréstimos.</div></article>
+      <article class="metric"><span>Saídas previstas no mês</span><strong id="mScheduled" class="negative">R$ 0,00</strong><div class="metric-note">Valor cheio das faturas/contas com pagamento previsto neste mês, mesmo a parte que outras pessoas te devem.</div></article>
+      <article class="metric"><span>Gasto realmente seu</span><strong id="mOwn">R$ 0,00</strong><div class="metric-note">Só a sua parte dos gastos, no mês em que o pagamento está previsto.</div></article>
+      <article class="metric"><span>Saldo previsto</span><strong id="mBalance">R$ 0,00</strong><div class="metric-note">Entradas menos Gasto realmente seu.</div></article>
     </div>
     <div id="balanceBars" class="card section"></div>
 
     <div class="grid-2 section">
       <article class="card">
         <div class="card-head"><h2>Gastos por categoria</h2><span id="categoryTotal" class="muted"></span></div>
+        <div class="muted" style="margin-bottom:6px">Toque numa categoria para ver os lançamentos dela.</div>
         <div id="categoryBars"></div>
       </article>
       <article class="card">
         <div class="card-head"><h2>Cartões</h2></div>
+        <div class="muted" style="margin-bottom:6px">Toque num cartão para ver as compras dele neste mês.</div>
         <div id="cardBars"></div>
       </article>
     </div>
@@ -66,10 +69,12 @@
     <div class="grid-2 section">
       <article class="card">
         <div class="card-head"><h2>Entradas por origem</h2></div>
+        <div class="muted" style="margin-bottom:6px">Toque numa linha para ver as entradas daquela origem.</div>
         <div id="incomeBreakdown"></div>
       </article>
       <article class="card">
         <div class="card-head"><h2>Empréstimos cedidos</h2></div>
+        <div class="muted" style="margin-bottom:6px">Dinheiro emprestado a outras pessoas, categoria "Empréstimos cedidos".</div>
         <div class="loan-grid">
           <div class="loan-box">
             <span>A receber neste mês</span>
@@ -220,6 +225,79 @@
       </article>
     </div>
   </section>
+  <section id="tutorial" class="page hidden">
+    <div class="page-head">
+      <div><h1>Tutorial</h1><p class="muted">O que cada card faz e como usar. Toque num título para abrir.</p></div>
+    </div>
+
+    <details class="card section" open>
+      <summary><h2>Resumo — os 4 cards do topo</h2></summary>
+      <p><b>Entradas no mês</b> — soma de tudo que entrou de dinheiro no mês que você está vendo: salário, outras entradas, reembolsos recebidos e devoluções de empréstimo. Toque na barra verde "Entradas" logo abaixo para ver a lista.</p>
+      <p><b>Saídas previstas no mês</b> — valor cheio de tudo que está previsto para ser pago neste mês (faturas de cartão, por exemplo), mesmo a parte que outras pessoas te devem. Não é só o seu gasto, é o total que sai da sua conta quando a fatura é paga.</p>
+      <p><b>Gasto realmente seu</b> — só a sua parte dos gastos, descontando o que é de outras pessoas na divisão. Conta pelo mês em que o pagamento está previsto (ex.: uma compra no crédito em setembro, com vencimento em outubro, entra em outubro). Toque na barra vermelha "Gasto realmente seu" para ver a lista.</p>
+      <p><b>Saldo previsto</b> — Entradas menos Gasto realmente seu. É a sua sobra (ou falta) de dinheiro no mês, considerando só o que é realmente seu.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Gastos por categoria / Cartões</h2></summary>
+      <p><b>Gastos por categoria</b> — mostra quanto foi gasto em cada categoria (Casa, Alimentação, Transporte...) no mês, com a porcentagem sobre o total. Toque numa categoria para ver a lista de lançamentos que compõem aquele valor.</p>
+      <p><b>Cartões</b> — mesma ideia, mas por cartão. Mostra quanto do cartão está comprometido neste mês. Toque num cartão para ver as compras.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Entradas por origem / Empréstimos cedidos</h2></summary>
+      <p><b>Entradas por origem</b> — divide as entradas do mês em três grupos: Salário e outras entradas, Devolução de empréstimos cedidos, e Outros reembolsos recebidos. Toque numa linha para ver quais entradas formam aquele valor.</p>
+      <p><b>A receber neste mês</b> — dinheiro que outras pessoas ainda te devem, da categoria "Empréstimos cedidos", com pagamento previsto neste mês. É uma previsão, não uma certeza — por isso não entra no Saldo previsto.</p>
+      <p><b>Emprestado neste mês</b> — quanto você cedeu a outras pessoas neste mês, nessa mesma categoria.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Saídas previstas: pagas x não pagas</h2></summary>
+      <p>Do total de "Saídas previstas no mês", mostra quanto já foi marcado como pago e quanto ainda está previsto. Ajuda a acompanhar o que falta pagar até o fim do mês.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Fluxo de caixa do mês</h2></summary>
+      <p>Lista, em ordem de data, tudo que entra e sai neste mês: entradas de dinheiro e despesas com pagamento previsto. Uma compra no crédito de outro mês aparece aqui quando a fatura vence neste mês. Os botões <b>Todos / Já pagos / Não pagos</b> filtram a lista. Toque no nome de um lançamento para abrir ele na aba Lançamentos; use o botão "Marcar como pago" para mudar o status sem sair do Resumo.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Pendências de reembolso</h2></summary>
+      <p>Mostra quem te deve dinheiro neste mês (qualquer categoria, não só empréstimos), com o valor e a data prevista de pagamento. Use "Marcar como recebido" quando a pessoa te pagar — isso cria automaticamente uma entrada no Resumo.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Últimos lançamentos</h2></summary>
+      <p>Um registro de tudo que você fez no app: gastos e entradas criados ou editados, pagamentos marcados, reembolsos recebidos, importações e restaurações de backup. Mostra os mais recentes primeiro, de qualquer mês. Toque num item para abrir o lançamento relacionado.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Aba Lançamentos</h2></summary>
+      <p>Lista completa de gastos e entradas do mês selecionado, com filtros de busca e tipo. Um gasto aparece tanto no mês da compra quanto no mês do pagamento previsto, quando forem diferentes (com uma etiqueta indicando isso). Selecione vários gastos com as caixinhas para definir o pagamento previsto de todos de uma vez.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>+ Gasto e + Entrada</h2></summary>
+      <p><b>Forma de pagamento</b> — Pix, Débito e Dinheiro escondem os campos de cartão/parcelas e já pagam na data da compra. Crédito pede o cartão e calcula o vencimento sozinho. Parcelado faz o mesmo e ainda lança as parcelas futuras automaticamente, uma por mês.</p>
+      <p><b>Divisão do gasto por pessoa</b> — por padrão o valor fica todo com "Você"; ao adicionar pessoas, o app divide igual entre elas. Dá para ajustar cada valor manualmente. Quem não for "Você" fica com uma pendência de reembolso.</p>
+      <p>O calendário sempre abre no mês que você está vendo na aba, para facilitar lançar algo num mês passado ou futuro.</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Cartões, Pessoas, Categorias, Regras</h2></summary>
+      <p><b>Cartões</b> — cadastre fechamento, vencimento e limite. O app usa isso para calcular o próximo vencimento automaticamente.</p>
+      <p><b>Pessoas</b> — cadastre quem participa das divisões de gasto, para aparecerem no formulário e nas pendências de reembolso.</p>
+      <p><b>Categorias</b> — crie, edite ou exclua categorias. Editar o nome atualiza todos os lançamentos e regras que já usavam a categoria antiga.</p>
+      <p><b>Regras</b> — associam uma palavra da descrição a uma categoria, para o app já sugerir a categoria certa ao digitar (ex.: "uber" → Transporte).</p>
+    </details>
+
+    <details class="card section">
+      <summary><h2>Importar e backup</h2></summary>
+      <p><b>Importar arquivo</b> — leia um extrato CSV ou OFX do banco, com prévia antes de confirmar. Se você soltar aqui um backup .json do próprio app, ele é restaurado direto, sem tentar ler como extrato.</p>
+      <p><b>Backup</b> — baixe, compartilhe ou copie seus dados como texto para levar a outro aparelho. "Restaurar" substitui tudo o que está no aparelho atual, então confirme antes.</p>
+    </details>
+  </section>
+
 </main>
 
 <div id="modal" class="modal hidden">

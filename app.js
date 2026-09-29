@@ -1,6 +1,6 @@
 
-const DB_KEY = "meu-controle-v11";
-const APP_VERSION = 11;
+const DB_KEY = "meu-controle-v2";
+const APP_VERSION = 2;
 
 const defaultData = {
   version: APP_VERSION,
@@ -163,17 +163,20 @@ function renderDashboard(){
   // Balanço visual: o mesmo cálculo do Saldo previsto (Entradas x Gasto realmente seu)
   const maxBal=Math.max(income,own,1);
   $("balanceBars").innerHTML=`
-    <div class="bar-row"><div class="bar-label"><span>Entradas</span><b class="positive">${fmtMoney(income)}</b></div><div class="bar"><i style="width:${income/maxBal*100}%;background:#15803d"></i></div></div>
-    <div class="bar-row"><div class="bar-label"><span>Gasto realmente seu</span><b class="negative">${fmtMoney(own)}</b></div><div class="bar"><i style="width:${own/maxBal*100}%;background:#b91c1c"></i></div></div>
-    <div class="field-note">Saldo previsto = Entradas − Gasto realmente seu, ambos contados no mês do pagamento previsto (não no mês da compra). "Saídas previstas no mês" (abaixo) é o valor cheio da fatura, incluindo a parte que outras pessoas te devem.</div>`;
+    <div class="bar-row bar-click" data-income-detail="all" title="Ver entradas"><div class="bar-label"><span>Entradas</span><b class="positive">${fmtMoney(income)}</b></div><div class="bar"><i style="width:${income/maxBal*100}%;background:#15803d"></i></div></div>
+    <div class="bar-row bar-click" data-own-detail="1" title="Ver gastos"><div class="bar-label"><span>Gasto realmente seu</span><b class="negative">${fmtMoney(own)}</b></div><div class="bar"><i style="width:${own/maxBal*100}%;background:#b91c1c"></i></div></div>
+    <div class="field-note">Saldo previsto = Entradas − Gasto realmente seu, ambos contados no mês do pagamento previsto (não no mês da compra). "Saídas previstas no mês" (abaixo) é o valor cheio da fatura, incluindo a parte que outras pessoas te devem. Toque numa barra para ver os lançamentos.</div>`;
+  $("balanceBars").querySelector("[data-income-detail]").onclick=()=>showIncomeDetail("all");
+  $("balanceBars").querySelector("[data-own-detail]").onclick=()=>showOwnDetail();
 
   // Entradas por origem: salário/normal, devolução de empréstimo, outros reembolsos
   const incRows=[
-    {label:"Salário e outras entradas",v:incB.normal,color:"#2563eb"},
-    {label:"Devolução de empréstimos cedidos",v:incB.loan,color:"#15803d"},
-    {label:"Outros reembolsos recebidos",v:incB.reimb,color:"#7c3aed"}
+    {label:"Salário e outras entradas",v:incB.normal,color:"#2563eb",origin:"normal"},
+    {label:"Devolução de empréstimos cedidos",v:incB.loan,color:"#15803d",origin:"loan"},
+    {label:"Outros reembolsos recebidos",v:incB.reimb,color:"#7c3aed",origin:"reimb"}
   ].filter(r=>r.v>0.004);
-  $("incomeBreakdown").innerHTML=incRows.length ? incRows.map(r=>{const pct=incB.total>0?Math.round(r.v/incB.total*100):0;return `<div class="bar-row"><div class="bar-label"><span>${r.label} (${pct}%)</span><b>${fmtMoney(r.v)}</b></div><div class="bar"><i style="width:${pct}%;background:${r.color}"></i></div></div>`}).join("") : '<div class="empty">Nenhuma entrada neste mês.</div>';
+  $("incomeBreakdown").innerHTML=incRows.length ? incRows.map(r=>{const pct=incB.total>0?Math.round(r.v/incB.total*100):0;return `<div class="bar-row bar-click" data-origin="${r.origin}" title="Ver entradas"><div class="bar-label"><span>${r.label} (${pct}%)</span><b>${fmtMoney(r.v)}</b></div><div class="bar"><i style="width:${pct}%;background:${r.color}"></i></div></div>`}).join("") : '<div class="empty">Nenhuma entrada neste mês.</div>';
+  $("incomeBreakdown").querySelectorAll("[data-origin]").forEach(el=>el.onclick=()=>showIncomeDetail(el.dataset.origin));
 
   $("mLoanReceivable").textContent=fmtMoney(loanReceivable);
   $("mLoanGiven").textContent=fmtMoney(loanGiven);
@@ -384,6 +387,26 @@ function showCategoryDetail(cat){
   const rows=scheduledPaymentsForMonth(month).filter(t=>(t.splits||[]).some(s=>s.category===cat)).sort(byNewest);
   const total=rows.reduce((s,t)=>s+partOf(t),0);
   openModal(`${cat} · compras de ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · total <b>${fmtMoney(total)}</b></div>`+detailTable(rows,partOf));
+}
+function incomeOrigin(t){
+  if(t.source!=="reimbursement") return "normal";
+  return t.sourceCategory===LOAN_CATEGORY ? "loan" : "reimb";
+}
+function incomeDetailTable(rows){
+  if(!rows.length) return '<div class="empty">Nenhuma entrada.</div>';
+  const body=rows.map(t=>`<tr><td>${fmtDate(t.date)}</td><td><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}</td><td class="right positive">+ ${fmtMoney(t.value)}</td></tr>`).join("");
+  return `<div class="table-wrap detail-table"><table><thead><tr><th>Data</th><th>Descrição</th><th class="right">Valor</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function showIncomeDetail(origin){
+  const titles={all:"Todas as entradas",normal:"Salário e outras entradas",loan:"Devolução de empréstimos cedidos",reimb:"Outros reembolsos recebidos"};
+  const rows=txForMonth(month).filter(t=>t.type==="income"&&(origin==="all"||incomeOrigin(t)===origin)).sort(byNewest);
+  const total=rows.reduce((s,t)=>s+t.value,0);
+  openModal(`${titles[origin]} · ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · total <b>${fmtMoney(total)}</b></div>`+incomeDetailTable(rows));
+}
+function showOwnDetail(){
+  const rows=scheduledPaymentsForMonth(month).filter(t=>ownAmount(t)>0.004).sort(byNewest);
+  const total=rows.reduce((s,t)=>s+ownAmount(t),0);
+  openModal(`Gasto realmente seu · ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · sua parte <b>${fmtMoney(total)}</b></div>`+detailTable(rows,ownAmount));
 }
 function showCardDetail(id){
   const c=data.cards.find(x=>x.id===id);
