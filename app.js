@@ -145,15 +145,6 @@ function renderDashboard(){
   const loanGiven=loanGivenForMonth(month);
   const projected=income-own;   // Saldo previsto = Entradas - Gasto realmente seu
 
-  const daysSince=data.lastBackupAt?Math.floor((Date.now()-data.lastBackupAt)/86400000):null;
-  const needsBackup=daysSince===null||daysSince>=14;
-  $("backupReminder").classList.toggle("hidden",!needsBackup);
-  if(needsBackup){
-    $("backupReminder").innerHTML = daysSince===null
-      ? `Você ainda não fez nenhum backup dos seus dados. <button type="button" class="btn ghost" onclick="switchTab('import')">Fazer backup agora</button>`
-      : `Já fazem ${daysSince} dias desde o último backup. <button type="button" class="btn ghost" onclick="switchTab('import')">Fazer backup agora</button>`;
-  }
-
   $("mIncome").textContent=fmtMoney(income);
   $("mScheduled").textContent=fmtMoney(scheduled);
   $("mOwn").textContent=fmtMoney(own);
