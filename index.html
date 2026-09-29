@@ -42,6 +42,7 @@
       </div>
       <input id="dashboardMonth" type="month" class="month">
     </div>
+    <div id="backupReminder" class="reminder-banner hidden"></div>
 
     <div class="metric-grid metric-grid-4">
       <article class="metric"><span>Entradas no mês</span><strong id="mIncome">R$ 0,00</strong></article>
@@ -228,7 +229,7 @@
   </div>
 </div>
 
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="app.js"></script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}</script>

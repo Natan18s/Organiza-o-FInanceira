@@ -18,7 +18,8 @@ const defaultData = {
     {id:"r4", keyword:"mercado", category:"Alimentação"}
   ],
   importLog: [],
-  activityLog: []
+  activityLog: [],
+  lastBackupAt: null
 };
 
 let data;
@@ -27,6 +28,7 @@ let pendingImport = [];
 let selectedTxIds = new Set();
 let month = localISO(new Date()).slice(0,7);
 let cashFilter = "all";   // filtro do fluxo de caixa: all | paid | pending
+let lastDeleted = null;   // guarda o último lançamento excluído, para o "Desfazer"
 const LOAN_CATEGORY = "Empréstimos cedidos";   // categoria especial: dinheiro emprestado a alguém
 
 const $ = id => document.getElementById(id);
@@ -36,7 +38,15 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString
 function localISO(d){ return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 const today = () => localISO(new Date());
 const fmtDate = d => new Date(d+"T12:00:00").toLocaleDateString("pt-BR");
-const toast = msg => { const t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2200); };
+function showToast(msg,actionLabel,actionFn){
+  const t=$("toast");
+  t.innerHTML = actionLabel ? `<span>${esc(msg)}</span><button type="button" class="toast-action">${esc(actionLabel)}</button>` : esc(msg);
+  if(actionLabel){ t.querySelector(".toast-action").onclick=()=>{actionFn();t.classList.remove("show")} }
+  t.classList.add("show");
+  clearTimeout(showToast._h);
+  showToast._h=setTimeout(()=>t.classList.remove("show"),actionLabel?6000:2200);
+}
+const toast = msg => showToast(msg);
 data = loadData();
 
 function loadData(){
@@ -47,6 +57,7 @@ function loadData(){
       saved.rules ||= [];
       saved.importLog ||= [];
       saved.activityLog ||= [];
+      if(saved.lastBackupAt===undefined) saved.lastBackupAt=null;
       saved.people=saved.people.some(p=>p.id==="self") ? saved.people : [{id:"self",name:"Você"},...saved.people];
       saved.transactions=saved.transactions.map(t=>normalizeTransaction(t));
       return saved;
@@ -108,7 +119,7 @@ function loanReceivableForMonth(m){
 // Dinheiro novo emprestado a outras pessoas no mês (saída de caixa)
 function loanGivenForMonth(m){
   let sum=0;
-  txForMonth(m).filter(t=>t.type==="expense").forEach(t=>loanSplits(t).forEach(s=>sum+=Number(s.amount||0)));
+  scheduledPaymentsForMonth(m).forEach(t=>loanSplits(t).forEach(s=>sum+=Number(s.amount||0)));
   return sum;
 }
 // Entradas do mês separadas por origem: salário/normal, devolução de empréstimo, outros reembolsos
@@ -123,15 +134,25 @@ function incomeBreakdownForMonth(m){
 function renderAll(){ renderDashboard(); renderTransactions(); renderCards(); renderPeople(); renderCategories(); renderRules(); renderImportCardOptions(); }
 
 function renderDashboard(){
-  const txPurchase=txForMonth(month);
+  const txPurchase=txForMonth(month);          // usado só para as Entradas (dinheiro que entrou de fato neste mês)
+  const sched=scheduledPaymentsForMonth(month); // gastos cujo PAGAMENTO previsto cai neste mês (é essa data que manda no Resumo)
   const incB=incomeBreakdownForMonth(month);
   const income=incB.total;
-  const gross=txPurchase.filter(t=>t.type==="expense").reduce((s,t)=>s+t.value,0);
-  const own=txPurchase.filter(t=>t.type==="expense").reduce((s,t)=>s+ownAmount(t),0);
-  const scheduled=scheduledPaymentsForMonth(month).reduce((s,t)=>s+t.value,0);
+  const gross=sched.reduce((s,t)=>s+t.value,0);
+  const own=sched.reduce((s,t)=>s+ownAmount(t),0);   // sua parte, no mês em que o cartão vence (não no mês da compra)
+  const scheduled=gross;
   const loanReceivable=loanReceivableForMonth(month);
   const loanGiven=loanGivenForMonth(month);
-  const projected=income-scheduled;
+  const projected=income-own;   // Saldo previsto = Entradas - Gasto realmente seu
+
+  const daysSince=data.lastBackupAt?Math.floor((Date.now()-data.lastBackupAt)/86400000):null;
+  const needsBackup=daysSince===null||daysSince>=14;
+  $("backupReminder").classList.toggle("hidden",!needsBackup);
+  if(needsBackup){
+    $("backupReminder").innerHTML = daysSince===null
+      ? `Você ainda não fez nenhum backup dos seus dados. <button type="button" class="btn ghost" onclick="switchTab('import')">Fazer backup agora</button>`
+      : `Já fazem ${daysSince} dias desde o último backup. <button type="button" class="btn ghost" onclick="switchTab('import')">Fazer backup agora</button>`;
+  }
 
   $("mIncome").textContent=fmtMoney(income);
   $("mScheduled").textContent=fmtMoney(scheduled);
@@ -139,11 +160,12 @@ function renderDashboard(){
   $("mBalance").textContent=fmtMoney(projected);
   $("mBalance").className=""+(projected>=0?"positive":"negative");
 
-  // Balanço visual: entradas x saídas previstas do mês, lado a lado
-  const maxBal=Math.max(income,scheduled,1);
+  // Balanço visual: o mesmo cálculo do Saldo previsto (Entradas x Gasto realmente seu)
+  const maxBal=Math.max(income,own,1);
   $("balanceBars").innerHTML=`
     <div class="bar-row"><div class="bar-label"><span>Entradas</span><b class="positive">${fmtMoney(income)}</b></div><div class="bar"><i style="width:${income/maxBal*100}%;background:#15803d"></i></div></div>
-    <div class="bar-row"><div class="bar-label"><span>Saídas previstas</span><b class="negative">${fmtMoney(scheduled)}</b></div><div class="bar"><i style="width:${scheduled/maxBal*100}%;background:#b91c1c"></i></div></div>`;
+    <div class="bar-row"><div class="bar-label"><span>Gasto realmente seu</span><b class="negative">${fmtMoney(own)}</b></div><div class="bar"><i style="width:${own/maxBal*100}%;background:#b91c1c"></i></div></div>
+    <div class="field-note">Saldo previsto = Entradas − Gasto realmente seu, ambos contados no mês do pagamento previsto (não no mês da compra). "Saídas previstas no mês" (abaixo) é o valor cheio da fatura, incluindo a parte que outras pessoas te devem.</div>`;
 
   // Entradas por origem: salário/normal, devolução de empréstimo, outros reembolsos
   const incRows=[
@@ -157,7 +179,7 @@ function renderDashboard(){
   $("mLoanGiven").textContent=fmtMoney(loanGiven);
 
   // Gastos por categoria (clicável: abre a lista de lançamentos da categoria)
-  const cat={}; txPurchase.filter(t=>t.type==="expense").forEach(t=>(t.splits||[]).forEach(s=>cat[s.category]=(cat[s.category]||0)+Number(s.amount||0)));
+  const cat={}; sched.forEach(t=>(t.splits||[]).forEach(s=>cat[s.category]=(cat[s.category]||0)+Number(s.amount||0)));
   const catArr=Object.entries(cat).sort((a,b)=>b[1]-a[1]);
   const max=catArr[0]?.[1]||1;
   $("categoryTotal").textContent=gross>0?`Total do mês: ${fmtMoney(gross)}`:"";
@@ -165,7 +187,7 @@ function renderDashboard(){
   $("categoryBars").querySelectorAll("[data-cat]").forEach(el=>el.onclick=()=>showCategoryDetail(el.dataset.cat));
 
   // Cartões (clicável: abre as compras do cartão)
-  const cardsCat={}; txPurchase.filter(t=>t.type==="expense"&&t.cardId).forEach(t=>cardsCat[t.cardId]=(cardsCat[t.cardId]||0)+t.value);
+  const cardsCat={}; sched.filter(t=>t.cardId).forEach(t=>cardsCat[t.cardId]=(cardsCat[t.cardId]||0)+t.value);
   const cArr=Object.entries(cardsCat).sort((a,b)=>b[1]-a[1]);
   $("cardBars").innerHTML=cArr.length ? cArr.map(([id,v])=>{
     const c=data.cards.find(x=>x.id===id), pct=Math.min(100,v/(c?.limit||Math.max(v,1))*100);
@@ -174,7 +196,6 @@ function renderDashboard(){
   $("cardBars").querySelectorAll("[data-card]").forEach(el=>el.onclick=()=>showCardDetail(el.dataset.card));
 
   // Pagamentos previstos do mês separados por status
-  const sched=scheduledPaymentsForMonth(month);
   const isPaid=t=>t.paymentStatus==="paid";
   const paidSum=sched.filter(isPaid).reduce((s,t)=>s+t.value,0);
   const pendingSum=scheduled-paidSum;
@@ -360,13 +381,13 @@ function detailTable(rows,valueOf){
 }
 function showCategoryDetail(cat){
   const partOf=t=>(t.splits||[]).filter(s=>s.category===cat).reduce((a,x)=>a+Number(x.amount||0),0);
-  const rows=txForMonth(month).filter(t=>t.type==="expense"&&(t.splits||[]).some(s=>s.category===cat)).sort(byNewest);
+  const rows=scheduledPaymentsForMonth(month).filter(t=>(t.splits||[]).some(s=>s.category===cat)).sort(byNewest);
   const total=rows.reduce((s,t)=>s+partOf(t),0);
   openModal(`${cat} · compras de ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · total <b>${fmtMoney(total)}</b></div>`+detailTable(rows,partOf));
 }
 function showCardDetail(id){
   const c=data.cards.find(x=>x.id===id);
-  const rows=txForMonth(month).filter(t=>t.type==="expense"&&t.cardId===id).sort(byNewest);
+  const rows=scheduledPaymentsForMonth(month).filter(t=>t.cardId===id).sort(byNewest);
   const total=rows.reduce((s,t)=>s+t.value,0);
   openModal(`${c?.name||"Cartão"} · compras de ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · total <b>${fmtMoney(total)}</b></div>`+detailTable(rows,t=>t.value));
 }
@@ -396,6 +417,7 @@ function openModal(title, body){
 function closeModal(){$("modal").classList.add("hidden")}
 $("closeModal").onclick=closeModal;
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape" && !$("modal").classList.contains("hidden")) closeModal()});
 
 function applyRule(description){
   const d=description.toLowerCase();
@@ -610,7 +632,17 @@ function removeTransaction(id){
   if(!confirm("Excluir este lançamento?"))return;
   data.transactions=data.transactions.filter(x=>x.id!==id);
   logActivity("delete",`Excluído: ${t.description}`,`${t.type==="income"?"Entrada":t.type==="expense"?"Gasto":"Pagamento de cartão"} de ${fmtMoney(t.value)} · data ${fmtDate(t.date)}`);
-  save();toast("Lançamento excluído");
+  lastDeleted=t;
+  save();
+  showToast("Lançamento excluído","Desfazer",undoDelete);
+}
+function undoDelete(){
+  if(!lastDeleted)return;
+  data.transactions.push(lastDeleted);
+  logActivity("create",`Exclusão desfeita: ${lastDeleted.description}`,fmtMoney(lastDeleted.value),lastDeleted.id);
+  lastDeleted=null;
+  save();
+  toast("Exclusão desfeita");
 }
 function markReimbursement(txId,splitIndex){
   const t=data.transactions.find(x=>x.id===txId);if(!t)return;
@@ -836,14 +868,16 @@ $("fileInput").onchange=e=>handleFile(e.target.files[0]);
 $("dropZone").addEventListener("drop",e=>handleFile(e.dataTransfer.files[0]));
 
 function backupPayload(){ return JSON.stringify(data,null,2); }
+function markBackedUp(){ data.lastBackupAt=Date.now(); save(); }
 function exportBackup(){
   const blob=new Blob([backupPayload()],{type:"application/json"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`meu-controle-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("Backup exportado");
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`meu-controle-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  markBackedUp();toast("Backup exportado");
 }
 async function shareBackup(){
   try{
     const file=new File([backupPayload()],`meu-controle-backup-${today()}.json`,{type:"application/json"});
-    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Backup Meu Controle"}); return }
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Backup Meu Controle"}); markBackedUp(); return }
   }catch(e){ if(e && e.name==="AbortError") return }
   exportBackup();   // sem suporte a compartilhamento de arquivo: cai para o download normal
 }
@@ -852,6 +886,7 @@ async function copyBackupText(){
   try{
     if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(text) }
     else{ const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove() }
+    markBackedUp();
     toast("Backup copiado. Cole em uma mensagem para você mesmo ou direto no outro aparelho.");
   }catch{
     $("backupExportText").value=text; $("backupExportText").classList.remove("hidden-file");
@@ -872,6 +907,7 @@ function applyBackup(x,sourceLabel){
   merged.rules=x.rules||[];
   merged.importLog=x.importLog||[];
   merged.activityLog=x.activityLog||[];
+  merged.lastBackupAt=x.lastBackupAt||null;
   data=merged;
   logActivity("restore",`Backup restaurado (${sourceLabel||"arquivo"})`,`${merged.transactions.length} lançamento(s) carregados`);
   save();
