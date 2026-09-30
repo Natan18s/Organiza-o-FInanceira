@@ -47,6 +47,22 @@ function showToast(msg,actionLabel,actionFn){
   showToast._h=setTimeout(()=>t.classList.remove("show"),actionLabel?6000:2200);
 }
 const toast = msg => showToast(msg);
+
+// ===== Tema claro / escuro (guardado à parte dos dados, não entra no backup) =====
+const THEME_KEY="meu-controle-theme";
+function currentTheme(){ return document.documentElement.dataset.theme==="dark"?"dark":"light"; }
+function applyTheme(t,persist){
+  document.documentElement.dataset.theme=t;
+  if(persist){ try{localStorage.setItem(THEME_KEY,t)}catch{} }
+  const meta=document.querySelector('meta[name="theme-color"]'); if(meta) meta.content=t==="dark"?"#0a101d":"#1e3a8a";
+  $("themeIcon").textContent=t==="dark"?"☀️":"🌙";
+  $("themeLabel").textContent=t==="dark"?"Claro":"Escuro";
+  const b=$("themeToggle"), txt=t==="dark"?"Mudar para o modo claro":"Mudar para o modo escuro";
+  b.title=txt; b.setAttribute("aria-label",txt);
+}
+$("themeToggle").onclick=()=>applyTheme(currentTheme()==="dark"?"light":"dark",true);
+applyTheme(currentTheme(),false);
+
 data = loadData();
 
 function loadData(){
@@ -80,6 +96,8 @@ document.querySelectorAll("[data-tab-link]").forEach(b=>b.addEventListener("clic
 
 function setMonth(m){ if(!m)return; month=m; ["dashboardMonth","txMonth","cardsMonth"].forEach(id=>{$(id).value=m}); renderAll(); }
 ["dashboardMonth","txMonth","cardsMonth"].forEach(id=>{$(id).value=month;$(id).addEventListener("change",e=>setMonth(e.target.value))});
+function shiftMonthStr(m,delta){const [y,mo]=m.split("-").map(Number);const d=new Date(y,mo-1+delta,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+document.querySelectorAll("[data-month-step]").forEach(b=>b.addEventListener("click",()=>setMonth(shiftMonthStr(month,Number(b.dataset.monthStep)))));
 $("txSearch").addEventListener("input",renderTransactions);
 $("txType").addEventListener("change",renderTransactions);
 $("selectAllTx").addEventListener("change",toggleSelectAll);
@@ -93,6 +111,7 @@ $("newRule").onclick=()=>openRuleModal();
 $("newCategory").onclick=()=>openCategoryModal();
 $("bulkPaymentDate").onclick=()=>openBulkPaymentModal();
 $("bulkClearPayment").onclick=clearBulkPaymentDate;
+$("bulkDelete").onclick=bulkDelete;
 $("clearSelection").onclick=()=>{selectedTxIds.clear();renderTransactions()};
 $("exportBackup").onclick=exportBackup;
 $("shareBackup").onclick=shareBackup;
@@ -293,14 +312,13 @@ function renderTransactions(){
   arr.sort(byNewest);
   const visibleIds=new Set(arr.map(t=>t.id));
   [...selectedTxIds].forEach(id=>{if(!visibleIds.has(id))selectedTxIds.delete(id)});
-  const allExpenses=arr.filter(t=>t.type==="expense");
-  $("selectAllTx").checked=allExpenses.length>0 && allExpenses.every(t=>selectedTxIds.has(t.id));
+  $("selectAllTx").checked=arr.length>0 && arr.every(t=>selectedTxIds.has(t.id));
   $("txTable").innerHTML=arr.length ? arr.map(t=>{
     const par=t.installments>1?`${t.installmentNo||1}/${t.installments}`:"—";
     const val=t.type==="expense"?`- ${fmtMoney(t.value)}`:`+ ${fmtMoney(t.value)}`;
     const cls=t.type==="expense"?"negative":"positive";
     return `<tr id="tx-${t.id}">
-      <td>${t.type==="expense"?`<input class="tx-check" type="checkbox" value="${t.id}" ${selectedTxIds.has(t.id)?"checked":""} onchange="toggleSelect('${t.id}',this.checked)">`:""}</td>
+      <td class="select-col"><input class="tx-check" type="checkbox" aria-label="Selecionar lançamento" value="${t.id}" ${selectedTxIds.has(t.id)?"checked":""} onchange="toggleSelect('${t.id}',this.checked)"></td>
       <td>${fmtDate(t.date)}</td><td><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}${t.type==="expense"&&t.date.slice(0,7)!==m?`<div><span class="tag">Compra de ${fmtMonthLabel(t.date)} · pagamento neste mês</span></div>`:""}</td>
       <td>${t.type==="expense"?categoryLabels(t):t.source==="reimbursement"?'<span class="pill">Reembolso</span>':"—"}</td>
       <td>${paymentLabel(t)}</td><td>${peopleLabels(t)}</td><td>${paymentDateLabel(t)}</td><td>${par}</td>
@@ -312,15 +330,28 @@ function renderTransactions(){
 }
 function openBulkPaymentModal(){
   const ids=[...selectedTxIds], expenses=ids.map(id=>data.transactions.find(t=>t.id===id)).filter(t=>t?.type==="expense");
-  if(!expenses.length){alert("Selecione pelo menos um gasto.");return}
+  if(!expenses.length){alert("Selecione pelo menos um gasto. A data de pagamento previsto só vale para gastos.");return}
   const suggested=expenses.length===1?(expenses[0].paymentDate||nextCardPaymentDate(expenses[0].cardId,expenses[0].date)):(month+"-19");
-  openModal("Definir pagamento previsto",`<form id="bulkPayForm"><p>Você selecionou <b>${expenses.length}</b> gasto(s). A data abaixo será aplicada a todos.</p><div><label>Data de pagamento</label><input name="paymentDate" type="date" value="${suggested}" required></div><div style="margin-top:10px"><label>Status</label><select name="status"><option value="planned">Pagamento previsto</option><option value="paid">Já pago</option></select></div><div class="row-actions end" style="margin-top:15px"><button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary">Aplicar aos selecionados</button></div></form>`);
+  openModal("Definir pagamento previsto",`<form id="bulkPayForm"><p>Você selecionou <b>${expenses.length}</b> gasto(s). A data abaixo será aplicada a todos.${ids.length>expenses.length?" As entradas selecionadas serão ignoradas.":""}</p><div><label>Data de pagamento</label><input name="paymentDate" type="date" value="${suggested}" required></div><div style="margin-top:10px"><label>Status</label><select name="status"><option value="planned">Pagamento previsto</option><option value="paid">Já pago</option></select></div><div class="row-actions end" style="margin-top:15px"><button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary">Aplicar aos selecionados</button></div></form>`);
   $("bulkPayForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);expenses.forEach(t=>{t.paymentDate=f.get("paymentDate");t.paymentStatus=f.get("status")});logActivity("bulk",`Pagamento previsto definido em ${expenses.length} gasto(s)`,`Data ${fmtDate(f.get("paymentDate"))} · ${f.get("status")==="paid"?"já pago":"previsto"} · ${expenses.slice(0,3).map(t=>t.description).join(", ")}${expenses.length>3?"…":""}`);selectedTxIds.clear();closeModal();save();toast(`Pagamento previsto aplicado a ${expenses.length} gasto(s)`) };
 }
 function clearBulkPaymentDate(){
   const expenses=[...selectedTxIds].map(id=>data.transactions.find(t=>t.id===id)).filter(t=>t?.type==="expense");
-  if(!expenses.length)return;
+  if(!expenses.length){toast("Selecione pelo menos um gasto.");return}
   expenses.forEach(t=>{t.paymentDate=t.date;t.paymentStatus="paid"});logActivity("bulk",`Previsão de pagamento removida de ${expenses.length} gasto(s)`,expenses.slice(0,3).map(t=>t.description).join(", ")+(expenses.length>3?"…":""));selectedTxIds.clear();save();toast("Previsão de pagamento removida");
+}
+
+function bulkDelete(){
+  const items=[...selectedTxIds].map(id=>data.transactions.find(t=>t.id===id)).filter(Boolean);
+  if(!items.length)return;
+  if(!confirm(`Excluir ${items.length} lançamento(s) selecionado(s)? Logo depois você poderá desfazer.`))return;
+  const ids=new Set(items.map(t=>t.id));
+  data.transactions=data.transactions.filter(t=>!ids.has(t.id));
+  logActivity("delete",`${items.length} lançamento(s) excluído(s) de uma vez`,items.slice(0,3).map(t=>t.description).join(", ")+(items.length>3?"…":""));
+  lastDeleted=items;
+  selectedTxIds.clear();
+  save();
+  showToast(`${items.length} lançamento(s) excluído(s)`,"Desfazer",undoDelete);
 }
 
 function renderCards(){
@@ -348,6 +379,7 @@ function expenseDestination(t){
   return parts.join(" · ");
 }
 const fmtMonthLabel=m=>m.slice(5,7)+"/"+m.slice(0,4);
+const MONTHS_PT=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 const byNewest=(a,b)=>b.date.localeCompare(a.date)||(b.createdAt||0)-(a.createdAt||0);
 function defaultEntryDate(){ return today().slice(0,7)===month ? today() : `${month}-01`; }   // abre o calendário no mês que está sendo visto
 
@@ -427,9 +459,12 @@ function openModal(title, body){
   $("modalTitle").textContent=title;
   $("modalBody").innerHTML=body;
   $("modal").classList.remove("hidden");
+  document.documentElement.classList.add("modal-open");   // só o painel rola; a tela de trás fica parada
+  $("modal").querySelector(".modal-box").scrollTop=0;
 }
-function closeModal(){$("modal").classList.add("hidden")}
+function closeModal(){$("modal").classList.add("hidden");document.documentElement.classList.remove("modal-open")}
 $("closeModal").onclick=closeModal;
+$("modal").addEventListener("touchmove",e=>{if(e.target.id==="modal")e.preventDefault()},{passive:false});
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape" && !$("modal").classList.contains("hidden")) closeModal()});
 
@@ -474,7 +509,7 @@ function transactionForm(t=null,type="expense"){
         <div><label>Total de parcelas</label><input name="installments" id="txInstallments" type="number" step="1" value="${t?.installments>1?t.installments:""}" placeholder="Ex.: 10" ${lock}></div>
         <div><label>Parcela inicial (restantes)</label><input name="startInstallment" id="txStart" type="number" step="1" value="${t?.installmentNo||1}" ${lock}><div class="field-note">1 = compra nova. Se já pagou 3 parcelas, use 4: só as restantes serão lançadas.</div></div>
         <div><label>Mês da 1ª parcela lançada</label><input name="firstMonth" id="txFirstMonth" type="month" value="${t?.date?.slice(0,7)||month}" ${lock}></div>
-        <div class="full"><div class="field-note" id="installPreview"></div></div>
+        <div class="full"><div class="install-preview" id="installPreview"></div></div>
       </div>
       <div class="full"><label>Observação</label><input name="notes" value="${esc(t?.notes||"")}" placeholder="Ex.: fatura de outubro"></div>
     `:`
@@ -498,11 +533,16 @@ function distributeEqual(){
 function renderInstallPreview(){
   const box=$("installPreview"); if(!box)return;
   if($("txMethod").value!=="installment"||$("txInstallments").disabled){box.textContent="";return}
-  const n=Number($("txInstallments").value||0),start=Number($("txStart").value||1),total=Number($("txValue").value||0),fm=$("txFirstMonth").value,day=$("txDate").value.slice(8,10)||"01";
+  const n=Number($("txInstallments").value||0),start=Number($("txStart").value||1),total=Number($("txValue").value||0),fm=$("txFirstMonth").value,day=$("txDate").value.slice(8,10)||"01",pay=$("txPaymentDate").value;
   if(!(n>=2&&n<=48)||!(start>=1&&start<=n)||!fm||!total){box.textContent="Informe o valor e o total de parcelas para ver como ficarão os lançamentos.";return}
-  const base=Math.floor(Math.round(total*100)/n), out=[];
-  for(let k=start;k<=n;k++){const cents=k===n?Math.round(total*100)-base*(n-1):base;const d=shiftMonthDate(fm,day,k-start);out.push(`<span class="tag">${k}/${n} · ${d.slice(5,7)}/${d.slice(0,4)} · ${fmtMoney(cents/100)}</span>`)}
-  box.innerHTML=`<b>${n-start+1} parcela(s) serão lançadas:</b><br>${out.join(" ")}`;
+  const base=Math.floor(Math.round(total*100)/n), rows=[]; let sum=0;
+  for(let k=start;k<=n;k++){
+    const cents=k===n?Math.round(total*100)-base*(n-1):base; sum+=cents;
+    const d=shiftMonthDate(fm,day,k-start), pd=pay?shiftMonthDate(pay.slice(0,7),pay.slice(8,10),k-start):"";
+    rows.push(`<div class="inst-row"><span class="inst-no">${k}/${n}</span><span class="inst-when"><b>${MONTHS_PT[Number(d.slice(5,7))-1]}/${d.slice(0,4)}</b>${pd?`<small>paga em ${fmtDate(pd)}</small>`:""}</span><span class="inst-val">${fmtMoney(cents/100)}</span></div>`);
+  }
+  const count=n-start+1, first=shiftMonthDate(fm,day,0);
+  box.innerHTML=`<div class="inst-box"><div class="inst-head"><div><b>${count} parcela${count>1?"s":""} ser${count>1?"ão":"á"} lançada${count>1?"s":""}</b><small>Uma por mês, começando em ${MONTHS_PT[Number(first.slice(5,7))-1]}/${first.slice(0,4)}</small></div><div class="inst-total"><small>Total lançado</small><b>${fmtMoney(sum/100)}</b></div></div><div class="inst-cols"><span>Parcela</span><span>Mês do lançamento</span><span>Valor</span></div><div class="inst-list">${rows.join("")}</div></div>`;
 }
 function openTransactionModal(type="expense",tx=null){
   openModal(tx?(type==="expense"?"Editar gasto":"Editar entrada"):(type==="expense"?"Novo gasto":"Nova entrada"),transactionForm(tx,type));
@@ -566,7 +606,7 @@ function bindSplitRow(row){
   row.querySelector(".split-owner").addEventListener("change",updateSplitStatus);
 }
 function updateSplitStatus(e){const row=e.target.closest(".split"),owner=e.target.value,person=row.querySelector(".person");person.innerHTML=owner==="self"?`<label>Status</label><div class="field-note">Não gera reembolso</div>`:`<label>Status</label><select class="split-status"><option value="pending">A receber</option><option value="received">Já recebi</option></select>`}
-function updateSplitTotal(){if(!$("splitList"))return;const total=[...document.querySelectorAll(".split-amount")].reduce((s,i)=>s+Number(i.value||0),0),target=Number($("txValue")?.value||0);$("splitSum").textContent=fmtMoney(total);const diff=target-total;$("splitHint").textContent=Math.abs(diff)<0.005?"Divisão correta.":`Diferença: ${fmtMoney(Math.abs(diff))} ${diff>0?"a distribuir":"a mais"}.`;$("splitHint").style.color=Math.abs(diff)<0.005?"#15803d":"#b91c1c"}
+function updateSplitTotal(){if(!$("splitList"))return;const total=[...document.querySelectorAll(".split-amount")].reduce((s,i)=>s+Number(i.value||0),0),target=Number($("txValue")?.value||0);$("splitSum").textContent=fmtMoney(total);const diff=target-total;$("splitHint").textContent=Math.abs(diff)<0.005?"Divisão correta.":`Diferença: ${fmtMoney(Math.abs(diff))} ${diff>0?"a distribuir":"a mais"}.`;$("splitHint").style.color=Math.abs(diff)<0.005?"var(--green)":"var(--red)"}
 
 function collectSplits(){return [...document.querySelectorAll("#splitList .split")].map(row=>({id:uid(),category:row.querySelector(".split-category").value,amount:Number(row.querySelector(".split-amount").value||0),ownerId:row.querySelector(".split-owner").value,reimbursed:row.querySelector(".split-owner").value==="self"?false:row.querySelector(".split-status")?.value==="received"}));}
 function scaleSplits(splits,part,total){
@@ -646,14 +686,15 @@ function removeTransaction(id){
   if(!confirm("Excluir este lançamento?"))return;
   data.transactions=data.transactions.filter(x=>x.id!==id);
   logActivity("delete",`Excluído: ${t.description}`,`${t.type==="income"?"Entrada":t.type==="expense"?"Gasto":"Pagamento de cartão"} de ${fmtMoney(t.value)} · data ${fmtDate(t.date)}`);
-  lastDeleted=t;
+  lastDeleted=[t];
   save();
   showToast("Lançamento excluído","Desfazer",undoDelete);
 }
 function undoDelete(){
-  if(!lastDeleted)return;
-  data.transactions.push(lastDeleted);
-  logActivity("create",`Exclusão desfeita: ${lastDeleted.description}`,fmtMoney(lastDeleted.value),lastDeleted.id);
+  if(!lastDeleted||!lastDeleted.length)return;
+  const back=lastDeleted;
+  back.forEach(t=>data.transactions.push(t));
+  logActivity("create",back.length>1?`Exclusão desfeita: ${back.length} lançamentos`:`Exclusão desfeita: ${back[0].description}`,back.length>1?back.slice(0,3).map(t=>t.description).join(", ")+(back.length>3?"…":""):fmtMoney(back[0].value),back.length===1?back[0].id:"");
   lastDeleted=null;
   save();
   toast("Exclusão desfeita");
