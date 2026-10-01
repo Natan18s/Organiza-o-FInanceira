@@ -3,14 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1e3a8a">
+<meta name="theme-color" content="#14275f">
 <title>Meu Controle Financeiro</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="styles.css">
-<script>(function(){try{var t=localStorage.getItem("meu-controle-theme");if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="dark"?"#0a101d":"#1e3a8a"}catch(e){}})()</script>
+<!-- Estilos: cores dos temas -> estrutura geral -> componentes (a ordem importa) -->
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<!-- Aplica o tema salvo ANTES de a página aparecer (evita piscar). Padrão: modo claro. -->
+<script>(function(){try{var t=localStorage.getItem("meu-controle-theme");if(t!=="dark")t="light";document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="dark"?"#0a101d":"#14275f"}catch(e){}})()</script>
 </head>
 <body>
+<!-- CABEÇALHO: nome do app, botão de tema (claro/escuro) e atalhos + Gasto / + Entrada -->
 <header class="app-header">
   <div class="topbar">
     <div>
@@ -25,7 +30,9 @@
   </div>
 </header>
 
+<!-- CONTEÚDO PRINCIPAL: abas + uma seção (page) por aba. Só uma fica visível por vez (troca em js/ui.js > switchTab) -->
 <main class="container">
+  <!-- ABAS de navegação -->
   <nav class="tabs" aria-label="Navegação">
     <button class="tab active" data-tab="dashboard"><span class="tab-ico">📊</span>Resumo</button>
     <button class="tab" data-tab="transactions"><span class="tab-ico">🧾</span>Lançamentos</button>
@@ -37,6 +44,7 @@
     <button class="tab" data-tab="tutorial"><span class="tab-ico">❓</span>Tutorial</button>
   </nav>
 
+  <!-- ===== ABA RESUMO ===== -->
   <section id="dashboard" class="page">
     <div class="page-head">
       <div>
@@ -47,23 +55,26 @@
     </div>
     <div id="backupReminder" class="reminder-banner hidden"></div>
 
-    <div class="metric-grid metric-grid-4">
+    <!-- OS 4 CARDS DO TOPO: Entradas (verde), Saídas previstas (laranja), Gasto realmente seu (vermelho) e Saldo previsto -->
+  <div class="metric-grid metric-grid-4">
       <article class="metric m-income"><span>Entradas no mês</span><strong id="mIncome">R$ 0,00</strong><div class="metric-note">Tudo que entrou de dinheiro neste mês: salário, reembolsos, devolução de empréstimos.</div></article>
-      <article class="metric m-out"><span>Saídas previstas no mês</span><strong id="mScheduled" class="negative">R$ 0,00</strong><div class="metric-note">Valor cheio das faturas/contas com pagamento previsto neste mês, mesmo a parte que outras pessoas te devem.</div></article>
-      <article class="metric m-own"><span>Gasto realmente seu</span><strong id="mOwn">R$ 0,00</strong><div class="metric-note">Só a sua parte dos gastos, no mês em que o pagamento está previsto.</div></article>
+      <article class="metric m-out"><span>Saídas previstas no mês</span><strong id="mScheduled" class="attention">R$ 0,00</strong><div class="metric-note">Valor cheio das faturas/contas com pagamento previsto neste mês, mesmo a parte que outras pessoas te devem.</div></article>
+      <article class="metric m-own"><span>Gasto realmente seu</span><strong id="mOwn" class="negative">R$ 0,00</strong><div class="metric-note">Só a sua parte dos gastos, no mês em que o pagamento está previsto.</div></article>
       <article class="metric m-balance"><span>Saldo previsto</span><strong id="mBalance">R$ 0,00</strong><div class="metric-note">Entradas menos Gasto realmente seu.</div></article>
     </div>
-    <div id="balanceBars" class="card section"></div>
+    <!-- Barras Entradas x Gasto realmente seu (clicáveis; % sobre as entradas) — desenhadas em js/dashboard.js -->
+  <div id="balanceBars" class="card section"></div>
 
-    <div class="grid-2 section">
+    <!-- GASTOS POR CATEGORIA e CARTÕES (barras clicáveis; porcentagem = valor ÷ entradas do mês) -->
+  <div class="grid-2 section">
       <article class="card">
         <div class="card-head"><h2>Gastos por categoria</h2><span id="categoryTotal" class="muted"></span></div>
-        <div class="muted" style="margin-bottom:6px">Toque numa categoria para ver os lançamentos dela.</div>
+        <div class="muted" style="margin-bottom:6px">Toque numa categoria para ver os lançamentos dela. A porcentagem é em relação às entradas do mês.</div>
         <div id="categoryBars"></div>
       </article>
       <article class="card">
         <div class="card-head"><h2>Cartões</h2></div>
-        <div class="muted" style="margin-bottom:6px">Toque num cartão para ver as compras dele neste mês.</div>
+        <div class="muted" style="margin-bottom:6px">Toque num cartão para ver as compras dele neste mês. A porcentagem é em relação às entradas do mês.</div>
         <div id="cardBars"></div>
       </article>
     </div>
@@ -92,12 +103,14 @@
       </article>
     </div>
 
-    <article class="card section">
+    <!-- SAÍDAS PREVISTAS: pagas x não pagas -->
+  <article class="card section">
       <div class="card-head"><div><h2>Saídas previstas: pagas x não pagas</h2></div></div>
       <div id="paymentStatusBars"></div>
     </article>
 
-    <details class="card section" open>
+    <!-- FLUXO DE CAIXA do mês (recolhível) -->
+  <details class="card section" open>
       <summary><h2>Fluxo de caixa do mês</h2></summary>
       <div class="muted" style="margin:6px 0 4px">As compras de cartão podem ter sido feitas em outro mês, mas entram aqui quando a despesa estiver prevista para pagamento neste mês. Clique num item para ver o lançamento completo em Lançamentos.</div>
       <div class="row-actions" style="margin:8px 0"><button class="btn primary" data-cash-filter="all" onclick="setCashFilter('all')">Todos</button><button class="btn" data-cash-filter="paid" onclick="setCashFilter('paid')">Já pagos</button><button class="btn" data-cash-filter="pending" onclick="setCashFilter('pending')">Não pagos</button></div>
@@ -105,14 +118,16 @@
       <div id="cashflowSubtotal" class="muted" style="padding-top:8px"></div>
     </details>
 
-    <details class="card section">
+    <!-- PENDÊNCIAS DE REEMBOLSO do mês visto (recolhível) -->
+  <details class="card section">
       <summary><h2>Pendências de reembolso <span id="receivableBadge" class="pill"></span></h2></summary>
       <div class="muted" style="margin-bottom:6px">Apenas as pendências com pagamento previsto neste mês.</div>
       <div class="row-actions end" style="margin-bottom:6px"><button class="btn ghost" data-tab-link="transactions">Ver lançamentos</button></div>
       <div id="receivableList"></div>
     </details>
 
-    <details class="card section">
+    <!-- HISTÓRICO de atividades de todos os meses (recolhível) -->
+  <details class="card section">
       <summary><h2>Últimos lançamentos <span id="activityBadge" class="pill"></span></h2></summary>
       <div class="muted" style="margin-bottom:6px">Registro do que você fez no app, de todos os meses. Clique num item para ver o lançamento.</div>
       <div id="activityList" class="scroll-list"></div>
@@ -120,24 +135,28 @@
   </section>
 
 
+  <!-- ===== ABA LANÇAMENTOS ===== -->
   <section id="transactions" class="page hidden">
     <div class="page-head">
       <div><h1>Lançamentos</h1><p class="muted">Uma compra pode ter várias categorias e várias pessoas pagando partes dela. Use a coluna "Selecionar" para excluir ou alterar vários lançamentos de uma vez.</p></div>
       <div class="row-actions"><button class="btn primary" id="newExpense">+ Gasto</button><button class="btn" id="newIncome">+ Entrada</button></div>
     </div>
 
-    <article class="card filters">
+    <!-- FILTROS da tabela: mês (com setas), busca e tipo -->
+  <article class="card filters">
       <div><label>Mês da compra / lançamento</label><div class="month-nav"><button type="button" class="btn month-step" data-month-step="-1" aria-label="Mês anterior" title="Mês anterior">‹</button><input id="txMonth" type="month" class="month"><button type="button" class="btn month-step" data-month-step="1" aria-label="Próximo mês" title="Próximo mês">›</button></div></div>
       <div><label>Buscar</label><input id="txSearch" placeholder="Uber, Mercado, Renner..."></div>
       <div><label>Tipo</label><select id="txType"><option value="">Todos</option><option value="expense">Gastos</option><option value="income">Entradas</option><option value="card_payment">Pagamentos de cartão</option></select></div>
     </article>
 
-    <div id="bulkBar" class="bulkbar hidden">
+    <!-- BARRA DE AÇÕES EM MASSA: aparece quando há lançamentos marcados em "Selecionar" -->
+  <div id="bulkBar" class="bulkbar hidden">
       <div><b id="selectedCount">0</b> lançamento(s) selecionado(s)</div>
       <div class="row-actions"><button class="btn primary" id="bulkPaymentDate">📅 Definir pagamento previsto</button><button class="btn" id="bulkClearPayment">Limpar previsão</button><button class="btn danger" id="bulkDelete">🗑️ Excluir selecionados</button><button class="btn ghost" id="clearSelection">Cancelar seleção</button></div>
     </div>
 
-    <article class="table-card">
+    <!-- TABELA de lançamentos (linhas desenhadas em js/transactions.js > renderTransactions) -->
+  <article class="table-card">
       <div class="table-wrap">
         <table>
           <thead><tr><th class="select-col"><label class="select-all"><input type="checkbox" id="selectAllTx"> Selecionar</label></th><th>Data</th><th>Descrição</th><th>Categoria(s)</th><th>Forma</th><th>Responsável</th><th>Pagamento previsto</th><th>Parcelas</th><th class="right">Valor</th><th></th></tr></thead>
@@ -147,11 +166,13 @@
     </article>
   </section>
 
+  <!-- ===== ABA CARTÕES ===== -->
   <section id="cards" class="page hidden">
     <div class="page-head"><div><h1>Cartões</h1><p class="muted">Fechamento, vencimento, limite e total da fatura.</p></div><div class="row-actions"><div class="month-nav"><button type="button" class="btn month-step" data-month-step="-1" aria-label="Mês anterior" title="Mês anterior">‹</button><input id="cardsMonth" type="month" class="month"><button type="button" class="btn month-step" data-month-step="1" aria-label="Próximo mês" title="Próximo mês">›</button></div><button class="btn primary" id="newCard">+ Cartão</button></div></div>
     <div id="cardsGrid" class="metric-grid"></div>
   </section>
 
+  <!-- ===== ABA PESSOAS ===== -->
   <section id="people" class="page hidden">
     <div class="page-head"><div><h1>Pessoas</h1><p class="muted">Use as pessoas para controlar automaticamente o que cada uma precisa te devolver.</p></div><button class="btn primary" id="newPerson">+ Pessoa</button></div>
     <div class="grid-2">
@@ -166,16 +187,19 @@
     </div>
   </section>
 
+  <!-- ===== ABA CATEGORIAS ===== -->
   <section id="categories" class="page hidden">
     <div class="page-head"><div><h1>Categorias</h1><p class="muted">Crie, edite ou remova categorias usadas nos seus gastos. Elas também aparecem no campo de divisão de despesas.</p></div><button class="btn primary" id="newCategory">+ Categoria</button></div>
     <article class="card"><div id="categoriesList"></div></article>
   </section>
 
+  <!-- ===== ABA REGRAS (categoria automática por palavra) ===== -->
   <section id="rules" class="page hidden">
     <div class="page-head"><div><h1>Regras automáticas</h1><p class="muted">O app pode sugerir categorias quando uma descrição contém certas palavras.</p></div><button class="btn primary" id="newRule">+ Regra</button></div>
     <article class="card"><div id="rulesList"></div></article>
   </section>
 
+  <!-- ===== ABA IMPORTAR: extrato CSV/OFX e backup ===== -->
   <section id="import" class="page hidden">
     <div class="page-head"><div><h1>Importar e exportar</h1><p class="muted">Agora o app aceita CSV e OFX, inclusive OFX de cartão de crédito como o arquivo que você enviou.</p></div></div>
     <div class="grid-2">
@@ -227,6 +251,7 @@
       </article>
     </div>
   </section>
+  <!-- ===== ABA TUTORIAL: explica cada card ===== -->
   <section id="tutorial" class="page hidden">
     <div class="page-head">
       <div><h1>Tutorial</h1><p class="muted">O que cada card faz e como usar. Toque num título para abrir.</p></div>
@@ -242,8 +267,8 @@
 
     <details class="card section">
       <summary><h2>Gastos por categoria / Cartões</h2></summary>
-      <p><b>Gastos por categoria</b> — mostra quanto foi gasto em cada categoria (Casa, Alimentação, Transporte...) no mês, com a porcentagem sobre o total. Toque numa categoria para ver a lista de lançamentos que compõem aquele valor.</p>
-      <p><b>Cartões</b> — mesma ideia, mas por cartão. Mostra quanto do cartão está comprometido neste mês. Toque num cartão para ver as compras.</p>
+      <p><b>Gastos por categoria</b> — mostra quanto foi gasto em cada categoria (Casa, Alimentação, Transporte...) no mês, com a porcentagem em relação às entradas do mês (ex.: 20% = um quinto de tudo que entrou). Toque numa categoria para ver a lista de lançamentos que compõem aquele valor.</p>
+      <p><b>Cartões</b> — mesma ideia, mas por cartão. Mostra quanto cada cartão representa das entradas do mês, em porcentagem. Toque num cartão para ver as compras.</p>
     </details>
 
     <details class="card section">
@@ -302,6 +327,7 @@
 
 </main>
 
+<!-- PAINEL (modal): janela usada por formulários e listas de detalhe. Conteúdo preenchido por js/ui.js > openModal -->
 <div id="modal" class="modal hidden">
   <div class="modal-box large">
     <div class="modal-head"><h2 id="modalTitle"></h2><button class="icon-btn" id="closeModal">✕</button></div>
@@ -309,9 +335,23 @@
   </div>
 </div>
 
+<!-- AVISO RÁPIDO (toast) no canto da tela -->
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script src="app.js"></script>
+<!-- Código do app. A ordem importa: cada arquivo usa o que vem antes dele; main.js é sempre o último. -->
+<script src="js/utils.js"></script>
+<script src="js/config.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/calculations.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/transactions.js"></script>
+<script src="js/cadastros.js"></script>
+<script src="js/importer.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/main.js"></script>
+<!-- Registra o service worker (permite instalar o app no celular e abrir sem internet) -->
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}</script>
 </body>
 </html>

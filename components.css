@@ -1,0 +1,113 @@
+/* ============================================================
+   components.css — componentes e telas específicas
+   Importação, avisos, seleção em massa, painel (modal), prévia de parcelas, Resumo, efeito de elevação e ajustes para celular.
+   ============================================================ */
+
+/* ===== Importação ===== */
+.dropzone{border:2px dashed var(--line-strong);border-radius:14px;padding:28px 16px;text-align:center;background:var(--soft);display:flex;flex-direction:column;gap:8px;align-items:center}
+.dropzone.drag{border-color:var(--btn);background:var(--info-bg)}.drop-icon{font-size:28px}.dropzone input{display:none}
+.status{margin-top:10px;padding:10px;border-radius:10px;background:var(--info-bg);color:var(--info-fg);font-size:13px}.preview{margin-top:14px}
+hr{border:0;border-top:1px solid var(--line);margin:20px 0}
+
+/* ===== Aviso rápido ===== */
+.toast{position:fixed;right:18px;bottom:18px;background:#0f172a;color:#fff;border:1px solid rgba(255,255,255,.14);padding:12px 15px;border-radius:12px;display:none;z-index:30;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.toast.show{display:flex}
+.toast-action{background:#3b6cf6;color:#fff;border:0;border-radius:8px;padding:6px 10px;font-weight:700;font-size:12px;cursor:pointer}
+
+/* ===== Seleção em massa ===== */
+.bulkbar{margin:12px 0;padding:11px 13px;border:1px solid var(--bulk-line);background:var(--bulk-bg);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;position:sticky;top:calc(var(--header-h) + env(safe-area-inset-top,0px) + 6px);z-index:4}
+.bulkbar.hidden{display:none!important}
+.field-note{font-size:11px;color:var(--muted);margin-top:4px}
+.pay-planned{color:var(--amber)}.pay-paid{color:var(--green)}.pay-none{color:var(--muted)}
+.category-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}.category-name{display:flex;align-items:center;gap:8px}
+.split-actions{display:flex;gap:6px;flex-wrap:wrap}.equal-btn{font-size:11px}
+.cashflow-item{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.cashflow-item:last-child{border-bottom:0}
+.cashflow-main{display:flex;gap:8px;align-items:center}.cashflow-dot{width:9px;height:9px;border-radius:50%;background:#3b6cf6;flex:none}.cashflow-dot.income{background:#16a34a}.cashflow-dot.expense{background:#ef4444}
+
+/* ===== Painel (modal) ===== */
+.modal{position:fixed;inset:0;background:rgba(2,6,23,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:14px;z-index:25;overscroll-behavior:contain}
+.modal-box{background:var(--surface);color:var(--text);border-radius:18px;width:min(760px,100%);max-height:92vh;max-height:92dvh;overflow:auto;overscroll-behavior:contain;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.modal-box.large{width:min(900px,100%)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.modal-head h2{margin:0;font-size:20px}
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.full{grid-column:1/-1}
+.split-header{display:flex;justify-content:space-between;align-items:center;margin:15px 0 8px;gap:10px}
+.split{display:grid;grid-template-columns:1.2fr 130px 150px 1fr 40px;gap:7px;align-items:end;background:var(--soft);padding:9px;border:1px solid var(--line);border-radius:12px;margin-bottom:7px}
+.split small{display:block;color:var(--muted)}.split-total{display:flex;justify-content:space-between;padding:9px 0;font-weight:700}
+.reimbursed-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px;border:1px solid var(--line);border-radius:10px;margin:7px 0}
+.card-mini{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--surface);box-shadow:var(--shadow)}.card-mini h3{margin:0 0 5px}.card-mini .big{font-size:24px;font-weight:800}
+
+/* ===== Prévia das parcelas ===== */
+.install-preview{font-size:12px;color:var(--muted)}
+.inst-box{border:1px solid var(--line);background:var(--soft);border-radius:14px;padding:12px}
+.inst-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.inst-head b{display:block;font-size:14px;color:var(--text)}
+.inst-head small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.inst-total{text-align:right;flex:none}.inst-total b{font-size:16px}
+.inst-cols,.inst-row{display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center}
+.inst-cols{padding:0 10px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+.inst-cols span:last-child{text-align:right}
+.inst-list{display:grid;gap:6px;max-height:230px;overflow:auto;overscroll-behavior:contain;padding-right:2px}
+.inst-row{padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--text)}
+.inst-no{justify-self:start;background:var(--pill-bg);color:var(--pill-fg);border-radius:999px;padding:3px 9px;font-weight:700;font-size:12px}
+.inst-when b{display:block;font-size:13px;text-transform:capitalize}.inst-when small{display:block;color:var(--muted);font-size:11px}
+.inst-val{font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+
+/* ===== Resumo: detalhes, listas e avisos ===== */
+details.card summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary h2{display:flex;align-items:center;gap:8px}
+details.card summary::after{content:"▾";color:var(--muted);transition:transform .15s}
+details.card[open] summary::after{content:"▴"}
+details.card summary .pill{font-weight:600}
+.scroll-list{max-height:340px;overflow:auto;overscroll-behavior:contain}
+.loan-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.loan-box{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px}
+.loan-box span{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}
+.loan-box strong{font-size:19px}
+.cashflow-link{cursor:pointer}.cashflow-link:hover b{text-decoration:underline}
+.detail-table table{min-width:0}
+tr.row-highlight{animation:rowFlash 2.8s ease}
+@keyframes rowFlash{0%{background:var(--flash)}70%{background:var(--flash)}100%{background:transparent}}
+.activity-item{display:grid;grid-template-columns:26px 1fr auto;gap:9px;align-items:start;padding:10px 4px;border-bottom:1px solid var(--line)}
+.activity-item:last-child{border-bottom:0}
+.activity-item.clickable{cursor:pointer;border-radius:8px}.activity-item.clickable:hover{background:var(--hover)}
+.activity-icon{font-size:15px;line-height:1.5}
+.activity-when{font-size:11px;white-space:nowrap}
+.reminder-banner{margin-bottom:14px;padding:10px 13px;border:1px solid var(--warn-line);background:var(--warn-bg);color:var(--warn-fg);border-radius:12px;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.reminder-banner .btn{padding:5px 10px;font-size:12px}
+.metric-note{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4}
+.metric-grid-4{grid-template-columns:repeat(4,1fr)}
+#tutorial details p{line-height:1.55;margin:0 0 10px}
+#tutorial details p:last-child{margin-bottom:0}
+#tutorial details+details{margin-top:10px}
+
+/* ===== Efeito ao passar o mouse (itens clicáveis "sobem" em direção ao usuário) ===== */
+.btn,.tab,.bar-click,.activity-item.clickable{transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,background .15s ease,border-color .15s ease}
+@media (hover:hover) and (pointer:fine){
+  .btn:hover:not(:disabled),.tab:hover,.activity-item.clickable:hover{transform:translateY(-3px) scale(1.025);box-shadow:var(--lift);position:relative;z-index:2}
+  .bar-click:hover{transform:translateY(-3px) scale(1.012);box-shadow:var(--lift);background:var(--surface);position:relative;z-index:2}   /* barras: elevação mais suave para não passar da borda do card */
+  .btn:active:not(:disabled),.tab:active,.bar-click:active,.activity-item.clickable:active{transform:translateY(-1px) scale(1.005);box-shadow:var(--lift-soft)}
+  .table-wrap .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--lift-soft)}   /* dentro de tabelas, elevação menor */
+}
+@media (prefers-reduced-motion:reduce){.btn,.tab,.bar-click,.activity-item.clickable{transition:none}.btn:hover,.tab:hover,.bar-click:hover,.activity-item.clickable:hover{transform:none}}
+
+/* ===== Telas menores ===== */
+@media(max-width:980px){.metric-grid{grid-template-columns:repeat(3,1fr)}.grid-2{grid-template-columns:1fr}}
+@media(max-width:680px){
+  :root{--header-h:56px}
+  .app-header{padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px}
+  .topbar{min-height:40px;flex-wrap:wrap;gap:8px}
+  .brand{font-size:18px}.subtitle{display:none}
+  .top-actions{gap:6px}.top-actions .btn{padding:8px 10px;font-size:13px}
+  .theme-label{display:none}
+  .page-head{align-items:stretch;flex-direction:column}
+  .month-nav{width:100%}.month-nav .month{flex:1;width:auto}
+  .metric-grid,.metric-grid-4{grid-template-columns:repeat(2,1fr)}
+  .filters{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}.full{grid-column:auto}
+  .split{grid-template-columns:1fr 110px 130px}.split .person,.split .remove-split{grid-column:auto}.split .category{grid-column:1/-1}.split .owner{grid-column:1/-1}
+  .split-header{flex-direction:column;align-items:stretch}
+  .loan-grid{grid-template-columns:1fr}
+  .inst-cols,.inst-row{grid-template-columns:58px 1fr auto}
+  .toast{left:12px;right:12px;bottom:14px}
+}
