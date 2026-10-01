@@ -52,15 +52,18 @@ function updateBulkBar(){
 
 // Desenha a tabela da aba Lançamentos, aplicando mês, busca e tipo. Um gasto também aparece no mês do pagamento previsto.
 function renderTransactions(){
+  // 1) Lê os filtros da tela: mês, texto da busca e tipo (gasto/entrada)
   const m=$("txMonth").value||month,q=($("txSearch").value||"").toLowerCase(),type=$("txType").value;
   // mostra o gasto no mês da compra e também no mês do pagamento previsto (ex.: compra no crédito paga no mês seguinte)
   const inMonth=t=>t.date.slice(0,7)===m || (t.type==="expense" && (t.paymentDate||t.date).slice(0,7)===m);
   let arr=data.transactions.filter(t=>inMonth(t) && (!type||t.type===type));
   if(q) arr=arr.filter(t=>(t.description+" "+(t.splits||[]).map(s=>s.category).join(" ")+" "+(t.notes||"")).toLowerCase().includes(q));
   arr.sort(byNewest);
+  // 2) Mantém marcados só os lançamentos que continuam visíveis e atualiza o "Selecionar" do cabeçalho
   const visibleIds=new Set(arr.map(t=>t.id));
   [...selectedTxIds].forEach(id=>{if(!visibleIds.has(id))selectedTxIds.delete(id)});
   $("selectAllTx").checked=arr.length>0 && arr.every(t=>selectedTxIds.has(t.id));
+  // 3) Desenha uma linha da tabela para cada lançamento
   $("txTable").innerHTML=arr.length ? arr.map(t=>{
     const par=t.installments>1?`${t.installmentNo||1}/${t.installments}`:"—";
     const val=t.type==="expense"?`- ${fmtMoney(t.value)}`:`+ ${fmtMoney(t.value)}`;
@@ -74,6 +77,7 @@ function renderTransactions(){
       <td><div class="row-actions">${t.type!=="card_payment"?`<button class="btn" onclick="editTransaction('${t.id}')">Editar</button>`:""}<button class="btn ghost" onclick="removeTransaction('${t.id}')">Excluir</button></div></td>
     </tr>`;
   }).join("") : '<tr><td colspan="10" class="empty">Nenhum lançamento encontrado.</td></tr>';
+  // 4) Mostra ou esconde a barra de ações em massa
   updateBulkBar();
 }
 
@@ -189,10 +193,13 @@ function renderInstallPreview(){
 // Abre o formulário de gasto/entrada e liga todos os comportamentos automáticos (vencimento, status, divisão, parcelas).
 function openTransactionModal(type="expense",tx=null){
   openModal(tx?(type==="expense"?"Editar gasto":"Editar entrada"):(type==="expense"?"Novo gasto":"Nova entrada"),transactionForm(tx,type));
+  // Gasto: liga os comportamentos automáticos do formulário (forma de pagamento, vencimento, status, divisão e parcelas)
   if(type==="expense"){
     const list=$("splitList");
     autoSplit=!tx; payTouched=!!tx; firstMonthTouched=!!tx; statusTouched=!!tx;
+    // show(): mostra ou esconde um grupo de campos (e desativa os inputs dele quando escondido)
     const show=(id,on)=>{const g=$(id);g.classList.toggle("hidden",!on);g.querySelectorAll("input,select").forEach(i=>{i.disabled=!on||i.dataset.lock==="1"})};
+    // autoPaymentDate(): sugere o vencimento (dia de vencimento do cartão, no mês seguinte à compra)
     const autoPaymentDate=()=>{$("txPaymentDate").value=nextMonthPaymentDate($("txCard").value,$("txDate").value)};
     // Regra 2: pagamento em mês diferente da compra => status "Previsto" e parcelamento acompanha o mês do pagamento
     const syncPaymentRules=()=>{
@@ -202,6 +209,7 @@ function openTransactionModal(type="expense",tx=null){
         if($("txMethod").value==="installment"&&!firstMonthTouched&&!tx)$("txFirstMonth").value=p.slice(0,7);
       }
     };
+    // refreshMethod(): ao trocar a forma de pagamento, mostra/esconde cartão, vencimento e parcelas e ajusta o status padrão
     const refreshMethod=()=>{
       const m=$("txMethod").value,credit=isCreditMethod(m),inst=m==="installment";
       show("grpCard",credit);show("grpPay",credit);show("grpInst",inst);   // Pix/Débito/Dinheiro: cartão, vencimento e parcelas somem (não são validados); o status continua editável
@@ -211,6 +219,7 @@ function openTransactionModal(type="expense",tx=null){
       if(credit){if(!$("txCard").value&&data.cards.length===1)$("txCard").value=data.cards[0].id;if(!tx&&!payTouched)autoPaymentDate();syncPaymentRules()}
       renderInstallPreview();
     };
+    // addPerson(): adiciona uma pessoa à divisão do gasto e redistribui o valor
     const addPerson=()=>{
       const rows=[...list.querySelectorAll(".split")],used=new Set(rows.map(r=>r.querySelector(".split-owner").value));
       const cand=data.people.find(p=>!used.has(p.id))||data.people.find(p=>p.id!=="self")||data.people[0];
@@ -220,6 +229,7 @@ function openTransactionModal(type="expense",tx=null){
       autoSplit=true;distributeEqual();   // recalcula o valor entre todas as pessoas
       if(data.people.length<2)toast("Cadastre pessoas na aba Pessoas para dividir o gasto.");
     };
+    // Ligações dos botões e campos do formulário (cada alteração recalcula a prévia de parcelas e a divisão)
     $("addSplit").onclick=addPerson;
     $("splitEqual").onclick=()=>{autoSplit=true;distributeEqual()};
     [...list.children].forEach(bindSplitRow);
@@ -237,6 +247,7 @@ function openTransactionModal(type="expense",tx=null){
     if(autoSplit)distributeEqual();
     refreshMethod();updateSplitTotal();
   }
+  // Cancelar fecha o painel; enviar o formulário salva como gasto ou como entrada
   $("cancelTx").onclick=closeModal;
   $("txForm").onsubmit=e=>{e.preventDefault();type==="expense"?saveExpenseFromForm(tx?.id||null):saveIncomeFromForm(tx?.id||null)};
 }

@@ -14,6 +14,7 @@ function barWidth(value,income,fallbackMax){ return income>0 ? Math.min(100,valu
 
 // Desenha a aba Resumo: os 4 cards do topo, barras, empréstimos, fluxo de caixa, pendências e histórico.
 function renderDashboard(){
+  // ETAPA 1 — Números do mês (só cálculos, nada é desenhado ainda)
   const txPurchase=txForMonth(month);          // usado só para as Entradas (dinheiro que entrou de fato neste mês)
   const sched=scheduledPaymentsForMonth(month); // gastos cujo PAGAMENTO previsto cai neste mês (é essa data que manda no Resumo)
   const incB=incomeBreakdownForMonth(month);
@@ -25,6 +26,7 @@ function renderDashboard(){
   const loanGiven=loanGivenForMonth(month);
   const projected=income-own;   // Saldo previsto = Entradas - Gasto realmente seu
 
+  // ETAPA 2 — Os 4 cards do topo: Entradas, Saídas previstas, Gasto realmente seu e Saldo previsto
   $("mIncome").textContent=fmtMoney(income);
   $("mScheduled").textContent=fmtMoney(scheduled);
   $("mOwn").textContent=fmtMoney(own);
@@ -49,6 +51,7 @@ function renderDashboard(){
   $("incomeBreakdown").innerHTML=incRows.length ? incRows.map(r=>{const pct=incB.total>0?Math.round(r.v/incB.total*100):0;return `<div class="bar-row bar-click" data-origin="${r.origin}" title="Ver entradas"><div class="bar-label"><span>${r.label} (${pct}%)</span><b>${fmtMoney(r.v)}</b></div><div class="bar"><i style="width:${pct}%;background:${r.color}"></i></div></div>`}).join("") : '<div class="empty">Nenhuma entrada neste mês.</div>';
   $("incomeBreakdown").querySelectorAll("[data-origin]").forEach(el=>el.onclick=()=>showIncomeDetail(el.dataset.origin));
 
+  // Cards de empréstimos: o que ainda deve voltar e o que foi emprestado no mês
   $("mLoanReceivable").textContent=fmtMoney(loanReceivable);
   $("mLoanGiven").textContent=fmtMoney(loanGiven);
 
