@@ -105,7 +105,13 @@ tr.row-highlight{animation:rowFlash 2.8s ease}
   .metric-grid,.metric-grid-4{grid-template-columns:repeat(2,1fr)}
   .filters{grid-template-columns:1fr}
   .form-grid{grid-template-columns:1fr}.full{grid-column:auto}
-  .split{grid-template-columns:1fr 110px 130px}.split .person,.split .remove-split{grid-column:auto}.split .category{grid-column:1/-1}.split .owner{grid-column:1/-1}
+  /* Divisão do gasto no celular: Categoria ocupa a linha toda; Valor e Quem paga dividem a linha meio a meio; Status e ✕ ficam embaixo */
+  .split{grid-template-columns:1fr 1fr;gap:10px}
+  .split .category{grid-column:1/-1}
+  .split .owner{grid-column:auto}
+  .split .person{grid-column:1/2}
+  .split .remove-split{grid-column:2;justify-self:end;height:44px;min-width:44px}
+  .split input,.split select{min-width:0;font-size:16px;padding:12px 11px}   /* campos maiores e fáceis de tocar (16px também evita o zoom automático do iPhone) */
   .split-header{flex-direction:column;align-items:stretch}
   .loan-grid{grid-template-columns:1fr}
   .inst-cols,.inst-row{grid-template-columns:58px 1fr auto}
