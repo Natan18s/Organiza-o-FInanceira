@@ -7,8 +7,8 @@
 const NO_INCOME_NOTE='<div class="field-note">Sem entradas neste mês: a porcentagem aparece quando houver entradas.</div>';
 // Quanto um valor representa das ENTRADAS do mês, em % (devolve null se não há entradas).
 function pctOfIncome(value,income){ return income>0 ? value/income*100 : null; }
-// Texto da porcentagem: "35%", "<1%" ou "—" quando não dá para calcular.
-function pctText(p){ if(p===null) return "—"; if(p>0&&p<1) return "<1%"; return Math.round(p)+"%"; }
+// Texto da porcentagem com 2 casas decimais e vírgula (ex.: "23,33%"), "<0,01%" para valores minúsculos ou "—" quando não dá para calcular.
+function pctText(p){ if(p===null) return "—"; if(p>0&&p<0.01) return "<0,01%"; return p.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%"; }
 // Largura da barra (0 a 100). Com entradas, 100% da barra = todas as entradas do mês; sem entradas, compara com o maior valor.
 function barWidth(value,income,fallbackMax){ return income>0 ? Math.min(100,value/income*100) : (fallbackMax>0 ? value/fallbackMax*100 : 0); }
 
