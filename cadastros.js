@@ -35,9 +35,17 @@ function applyRule(description){
   return rule?.category || "Outros";
 }
 
-// Lista as categorias com botões de editar/excluir.
+// Lista as categorias com botões para subir/descer (▲ ▼), editar e excluir. A ordem daqui é a ordem usada nos formulários e na Planilha do mês.
 function renderCategories(){
-  $("categoriesList").innerHTML=data.categories.map((c,i)=>`<div class="category-row"><div class="category-name"><span class="tag">#${i+1}</span><b>${esc(c)}</b></div><div class="row-actions"><button class="btn" onclick="editCategory(${i})">Editar</button><button class="btn ghost" onclick="deleteCategory(${i})">Excluir</button></div></div>`).join("");
+  const last=data.categories.length-1;
+  $("categoriesList").innerHTML=data.categories.map((c,i)=>`<div class="category-row"><div class="category-name"><span class="tag">#${i+1}</span><b>${esc(c)}</b></div><div class="row-actions"><button class="btn icon-move" title="Subir" aria-label="Subir ${esc(c)}" ${i===0?"disabled":""} onclick="moveCategory(${i},-1)">▲</button><button class="btn icon-move" title="Descer" aria-label="Descer ${esc(c)}" ${i===last?"disabled":""} onclick="moveCategory(${i},1)">▼</button><button class="btn" onclick="editCategory(${i})">Editar</button><button class="btn ghost" onclick="deleteCategory(${i})">Excluir</button></div></div>`).join("");
+}
+
+// Move a categoria de posição i uma casa para cima (dir=-1) ou para baixo (dir=1) e salva.
+function moveCategory(i,dir){
+  const j=i+dir; if(j<0||j>=data.categories.length)return;
+  [data.categories[i],data.categories[j]]=[data.categories[j],data.categories[i]];
+  save();
 }
 
 // Painel para criar ou renomear uma categoria (renomear atualiza lançamentos e regras).

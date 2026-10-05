@@ -49,7 +49,9 @@ function applyBackup(x,sourceLabel){
   merged.transactions=(x.transactions||[]).map(t=>normalizeTransaction({...t}));
   merged.cards=x.cards.length?x.cards:merged.cards;
   merged.people=x.people.some(p=>p.id==="self")?x.people:[{id:"self",name:"Você"},...x.people];
-  merged.categories=[...new Set([...(x.categories||[]),...defaultData.categories])];
+  // Backup antigo: junta com as categorias padrão e ordena (uma vez). Backup novo: mantém a ordem que você deixou.
+  merged.categories=x.categoriesV2 ? (x.categories||[]) : [...new Set([...(x.categories||[]),...defaultData.categories])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  merged.categoriesV2=true;
   merged.rules=x.rules||[];
   merged.importLog=x.importLog||[];
   merged.activityLog=x.activityLog||[];

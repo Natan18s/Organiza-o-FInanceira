@@ -55,16 +55,13 @@
     </div>
     <div id="backupReminder" class="reminder-banner hidden"></div>
 
-    <!-- OS 4 CARDS DO TOPO: Entradas (verde), Saídas previstas (laranja), Gasto realmente seu (vermelho) e Saldo previsto -->
+    <!-- OS 4 CARDS DO TOPO (clicáveis: abrem a lista de lançamentos): Entradas (verde), Saídas previstas (laranja), Gasto realmente seu (vermelho) e Saldo previsto -->
   <div class="metric-grid metric-grid-4">
-      <article class="metric m-income"><span>Entradas no mês</span><strong id="mIncome">R$ 0,00</strong><div class="metric-note">Tudo que entrou de dinheiro neste mês: salário, reembolsos, devolução de empréstimos.</div></article>
-      <article class="metric m-out"><span>Saídas previstas no mês</span><strong id="mScheduled" class="attention">R$ 0,00</strong><div class="metric-note">Valor cheio das faturas/contas com pagamento previsto neste mês, mesmo a parte que outras pessoas te devem.</div></article>
-      <article class="metric m-own"><span>Gasto realmente seu</span><strong id="mOwn" class="negative">R$ 0,00</strong><div class="metric-note">Só a sua parte dos gastos, no mês em que o pagamento está previsto.</div></article>
-      <article class="metric m-balance"><span>Saldo previsto</span><strong id="mBalance">R$ 0,00</strong><div class="metric-note">Entradas menos Gasto realmente seu.</div></article>
+      <article class="metric m-income clickable" data-metric="income" role="button" tabindex="0" title="Ver lançamentos"><span>Entradas no mês</span><strong id="mIncome">R$ 0,00</strong><div class="metric-note">Tudo que entrou de dinheiro neste mês: salário, reembolsos, devolução de empréstimos.</div><div class="metric-more">Toque para ver os lançamentos ›</div></article>
+      <article class="metric m-out clickable" data-metric="scheduled" role="button" tabindex="0" title="Ver lançamentos"><span>Saídas previstas no mês</span><strong id="mScheduled" class="attention">R$ 0,00</strong><div class="metric-pct attention" id="mScheduledPct"></div><div class="metric-note">Valor cheio das faturas/contas com pagamento previsto neste mês, mesmo a parte que outras pessoas te devem.</div><div class="metric-more">Toque para ver os lançamentos ›</div></article>
+      <article class="metric m-own clickable" data-metric="own" role="button" tabindex="0" title="Ver lançamentos"><span>Gasto realmente seu</span><strong id="mOwn" class="negative">R$ 0,00</strong><div class="metric-pct negative" id="mOwnPct"></div><div class="metric-note">Só a sua parte dos gastos, no mês em que o pagamento está previsto.</div><div class="metric-more">Toque para ver os lançamentos ›</div></article>
+      <article class="metric m-balance clickable" data-metric="balance" role="button" tabindex="0" title="Ver lançamentos"><span>Saldo previsto</span><strong id="mBalance">R$ 0,00</strong><div class="metric-note">Entradas menos Gasto realmente seu.</div><div class="metric-more">Toque para ver os lançamentos ›</div></article>
     </div>
-    <!-- Barras Entradas x Gasto realmente seu (clicáveis; % sobre as entradas) — desenhadas em js/dashboard.js -->
-  <div id="balanceBars" class="card section"></div>
-
     <!-- GASTOS POR CATEGORIA e CARTÕES (barras clicáveis; porcentagem = valor ÷ entradas do mês) -->
   <div class="grid-2 section">
       <article class="card">
@@ -79,12 +76,7 @@
       </article>
     </div>
 
-    <div class="grid-2 section">
-      <article class="card">
-        <div class="card-head"><h2>Entradas por origem</h2></div>
-        <div class="muted" style="margin-bottom:6px">Toque numa linha para ver as entradas daquela origem.</div>
-        <div id="incomeBreakdown"></div>
-      </article>
+    <div class="section">
       <article class="card">
         <div class="card-head"><h2>Empréstimos cedidos</h2></div>
         <div class="muted" style="margin-bottom:6px">Dinheiro emprestado a outras pessoas, categoria "Empréstimos cedidos".</div>
@@ -108,6 +100,13 @@
       <div class="card-head"><div><h2>Saídas previstas: pagas x não pagas</h2></div></div>
       <div id="paymentStatusBars"></div>
     </article>
+
+    <!-- PLANILHA DO MÊS (recolhível): despesas por categoria, entradas e saldo, no formato da planilha de controle -->
+  <details class="card section" open>
+      <summary><h2>📋 Planilha do mês</h2></summary>
+      <div class="muted" style="margin:6px 0 8px">Despesas por categoria (com o pagamento previsto), depois as entradas e o saldo do mês. Toque numa linha para ver o lançamento.</div>
+      <div id="sheetView"></div>
+    </details>
 
     <!-- FLUXO DE CAIXA do mês (recolhível) -->
   <details class="card section" open>
@@ -259,21 +258,21 @@
 
     <details class="card section" open>
       <summary><h2>Resumo — os 4 cards do topo</h2></summary>
-      <p><b>Entradas no mês</b> — soma de tudo que entrou de dinheiro no mês que você está vendo: salário, outras entradas, reembolsos recebidos e devoluções de empréstimo. Toque na barra verde "Entradas" logo abaixo para ver a lista.</p>
-      <p><b>Saídas previstas no mês</b> — valor cheio de tudo que está previsto para ser pago neste mês (faturas de cartão, por exemplo), mesmo a parte que outras pessoas te devem. Não é só o seu gasto, é o total que sai da sua conta quando a fatura é paga.</p>
-      <p><b>Gasto realmente seu</b> — só a sua parte dos gastos, descontando o que é de outras pessoas na divisão. Conta pelo mês em que o pagamento está previsto (ex.: uma compra no crédito em setembro, com vencimento em outubro, entra em outubro). Toque na barra vermelha "Gasto realmente seu" para ver a lista.</p>
-      <p><b>Saldo previsto</b> — Entradas menos Gasto realmente seu. É a sua sobra (ou falta) de dinheiro no mês, considerando só o que é realmente seu.</p>
+      <p><b>Entradas no mês</b> — soma de tudo que entrou de dinheiro no mês que você está vendo: salário, outras entradas, reembolsos recebidos e devoluções de empréstimo. Toque no card para ver a lista de entradas.</p>
+      <p><b>Saídas previstas no mês</b> — valor cheio de tudo que está previsto para ser pago neste mês (faturas de cartão, por exemplo), mesmo a parte que outras pessoas te devem. Não é só o seu gasto, é o total que sai da sua conta quando a fatura é paga. Toque no card para ver a lista.</p>
+      <p><b>Gasto realmente seu</b> — só a sua parte dos gastos, descontando o que é de outras pessoas na divisão. Conta pelo mês em que o pagamento está previsto (ex.: uma compra no crédito em setembro, com vencimento em outubro, entra em outubro). Toque no card para ver a lista.</p>
+      <p><b>Saldo previsto</b> — Entradas menos Gasto realmente seu. É a sua sobra (ou falta) de dinheiro no mês, considerando só o que é realmente seu. Toque no card para ver a conta e as duas listas.</p>
+      <p><b>Planilha do mês</b> — o mesmo formato da sua planilha: despesas agrupadas por categoria (com o pagamento previsto e o subtotal), depois as entradas, a soma das entradas e o saldo do mês. Aqui os valores são cheios, então o saldo desta tabela pode ser menor que o Saldo previsto do topo.</p>
     </details>
 
     <details class="card section">
       <summary><h2>Gastos por categoria / Cartões</h2></summary>
-      <p><b>Gastos por categoria</b> — mostra quanto foi gasto em cada categoria (Casa, Alimentação, Transporte...) no mês, com a porcentagem em relação às entradas do mês (ex.: 20% = um quinto de tudo que entrou). Toque numa categoria para ver a lista de lançamentos que compõem aquele valor.</p>
+      <p><b>Gastos por categoria</b> — mostra quanto foi gasto em cada categoria (Casa, Transporte, Lazer...) no mês, com a porcentagem em relação às entradas do mês (ex.: 20% = um quinto de tudo que entrou). Toque numa categoria para ver a lista de lançamentos que compõem aquele valor.</p>
       <p><b>Cartões</b> — mesma ideia, mas por cartão. Mostra quanto cada cartão representa das entradas do mês, em porcentagem. Toque num cartão para ver as compras.</p>
     </details>
 
     <details class="card section">
-      <summary><h2>Entradas por origem / Empréstimos cedidos</h2></summary>
-      <p><b>Entradas por origem</b> — divide as entradas do mês em três grupos: Salário e outras entradas, Devolução de empréstimos cedidos, e Outros reembolsos recebidos. Toque numa linha para ver quais entradas formam aquele valor.</p>
+      <summary><h2>Empréstimos cedidos</h2></summary>
       <p><b>A receber neste mês</b> — dinheiro que outras pessoas ainda te devem, da categoria "Empréstimos cedidos", com pagamento previsto neste mês. É uma previsão, não uma certeza — por isso não entra no Saldo previsto.</p>
       <p><b>Emprestado neste mês</b> — quanto você cedeu a outras pessoas neste mês, nessa mesma categoria.</p>
     </details>

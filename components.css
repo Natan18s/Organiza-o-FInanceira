@@ -81,15 +81,36 @@ tr.row-highlight{animation:rowFlash 2.8s ease}
 #tutorial details p:last-child{margin-bottom:0}
 #tutorial details+details{margin-top:10px}
 
+/* ===== Cards do topo clicáveis ===== */
+.metric.clickable{cursor:pointer;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease}
+.metric-pct{font-size:12px;font-weight:700;margin-top:3px}
+.metric-more{font-size:11px;color:var(--muted);margin-top:8px;font-weight:600}
+.bal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:6px}
+
+/* ===== Planilha do mês ===== */
+.sheet-table{min-width:520px}
+.sheet-table th,.sheet-table td{font-size:13px}
+.sheet-cat{font-weight:700;background:var(--soft);border-right:1px solid var(--line);min-width:120px;vertical-align:middle}
+.sheet-cat-in{color:var(--green)}
+.sheet-sub{font-weight:700;background:var(--soft);border-left:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+.sheet-date{white-space:nowrap;color:var(--muted)}
+.sheet-row{cursor:pointer}
+.sheet-row:hover td:not(.sheet-cat):not(.sheet-sub){background:var(--hover)}
+.sheet-total td{font-weight:800;font-size:14px;border-top:2px solid var(--line-strong)}
+.sheet-out td{background:var(--own-bg);color:var(--red)}
+.sheet-in td{background:rgba(22,163,74,.14);color:var(--green)}
+.sheet-bal td{background:rgba(245,158,11,.18);color:var(--text)}
+.icon-move{padding:9px 12px}.icon-move:disabled{opacity:.35;cursor:default}
+
 /* ===== Efeito ao passar o mouse (itens clicáveis "sobem" em direção ao usuário) ===== */
 .btn,.tab,.bar-click,.activity-item.clickable{transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,background .15s ease,border-color .15s ease}
 @media (hover:hover) and (pointer:fine){
-  .btn:hover:not(:disabled),.tab:hover,.activity-item.clickable:hover{transform:translateY(-3px) scale(1.025);box-shadow:var(--lift);position:relative;z-index:2}
+  .btn:hover:not(:disabled),.tab:hover,.activity-item.clickable:hover,.metric.clickable:hover{transform:translateY(-3px) scale(1.025);box-shadow:var(--lift);position:relative;z-index:2}
   .bar-click:hover{transform:translateY(-3px) scale(1.012);box-shadow:var(--lift);background:var(--surface);position:relative;z-index:2}   /* barras: elevação mais suave para não passar da borda do card */
-  .btn:active:not(:disabled),.tab:active,.bar-click:active,.activity-item.clickable:active{transform:translateY(-1px) scale(1.005);box-shadow:var(--lift-soft)}
+  .btn:active:not(:disabled),.tab:active,.bar-click:active,.activity-item.clickable:active,.metric.clickable:active{transform:translateY(-1px) scale(1.005);box-shadow:var(--lift-soft)}
   .table-wrap .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--lift-soft)}   /* dentro de tabelas, elevação menor */
 }
-@media (prefers-reduced-motion:reduce){.btn,.tab,.bar-click,.activity-item.clickable{transition:none}.btn:hover,.tab:hover,.bar-click:hover,.activity-item.clickable:hover{transform:none}}
+@media (prefers-reduced-motion:reduce){.btn,.tab,.bar-click,.activity-item.clickable{transition:none}.btn:hover,.tab:hover,.bar-click:hover,.activity-item.clickable:hover,.metric.clickable:hover{transform:none}}
 
 /* ===== Telas menores ===== */
 @media(max-width:980px){.metric-grid{grid-template-columns:repeat(3,1fr)}.grid-2{grid-template-columns:1fr}}

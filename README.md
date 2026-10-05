@@ -8,7 +8,7 @@ App de organização financeira em HTML + CSS + JavaScript puro (sem instalar na
 3. Todo trecho de código tem um comentário em português dizendo O QUE ele faz. Mantenha esse padrão nos trechos novos e atualize o comentário se o comportamento mudar.
 4. São scripts clássicos, sem módulos: as funções são globais (o HTML usa `onclick="..."`) e a ordem de carregamento no `index.html` importa. `main.js` é sempre o último.
 5. Os dados são de uma pessoa real, guardados no aparelho: nunca mude o formato salvo sem uma migração em `loadData` / `normalizeTransaction` (`storage.js`).
-6. Ao alterar qualquer arquivo, aumente a versão do cache em `sw.js` (`meu-controle-v6` -> `v7`). Se criar um arquivo novo, inclua-o na lista `FILES` do `sw.js` e no `index.html`.
+6. Ao alterar qualquer arquivo, aumente a versão do cache em `sw.js` (`meu-controle-v10` -> `v11`). Se criar um arquivo novo, inclua-o na lista `FILES` do `sw.js` e no `index.html`.
 7. Antes de entregar, confira se a mudança respeita as "Regras de negócio" abaixo.
 
 ## Arquivos
@@ -84,5 +84,7 @@ data = {
 - Parcelado: cada parcela é um lançamento próprio. O total é dividido pelo número de parcelas (a última leva os centavos que sobrarem) e a data da compra e do pagamento avançam um mês por parcela.
 - Divisão: a soma das partes precisa ser igual ao valor. A parte de outra pessoa fica "a receber" até `reimbursed:true`; ao marcar como recebido, o app cria uma entrada (`source:"reimbursement"`) ligada ao gasto.
 - A categoria "Empréstimos cedidos" é especial: é dinheiro emprestado. O que volta aparece à parte e não entra no Saldo previsto como previsão.
+- Resumo: os 4 cards do topo são clicáveis (abrem a lista de lançamentos). A "Planilha do mês" mostra despesas por categoria (valor cheio, na ordem da aba Categorias), entradas e saldo; o saldo dela usa valores cheios, por isso pode diferir do "Saldo previsto" do topo.
+- Categorias: `data.categories` é uma lista de nomes na ordem escolhida pelo usuário (▲ ▼ na aba Categorias). `categoriesV2` marca a migração única que juntou as categorias padrão e ordenou em ordem alfabética.
 - Aba Lançamentos: "Selecionar" marca gastos e entradas; definir/limpar pagamento previsto vale só para gastos; excluir vale para tudo e pode ser desfeito.
 - Tema: padrão claro; a escolha fica em `localStorage` na chave `meu-controle-theme` (fora do backup).

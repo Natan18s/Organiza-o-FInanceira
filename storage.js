@@ -8,7 +8,9 @@ function loadData(){
   try{
     const saved=JSON.parse(localStorage.getItem(DB_KEY));
     if(saved && Array.isArray(saved.transactions) && Array.isArray(saved.people) && Array.isArray(saved.cards)){
-      saved.categories=[...new Set([...(saved.categories||[]),...defaultData.categories])];
+      // Migração única: junta as categorias padrão novas com as suas e deixa em ordem alfabética. Depois disso a ordem é sua (▲ ▼ na aba Categorias).
+      saved.categories ||= [];
+      if(!saved.categoriesV2){ saved.categories=[...new Set([...saved.categories,...defaultData.categories])].sort((a,b)=>a.localeCompare(b,"pt-BR")); saved.categoriesV2=true; }
       saved.rules ||= [];
       saved.importLog ||= [];
       saved.activityLog ||= [];

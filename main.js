@@ -28,6 +28,11 @@ $("newCard").onclick=()=>openCardModal();
 $("newPerson").onclick=()=>openPersonModal();
 $("newRule").onclick=()=>openRuleModal();
 $("newCategory").onclick=()=>openCategoryModal();
+// Cards do topo do Resumo: clique (ou Enter/Espaço) abre a lista de lançamentos do card
+document.querySelectorAll(".metric[data-metric]").forEach(el=>{
+  el.addEventListener("click",()=>showMetricDetail(el.dataset.metric));
+  el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showMetricDetail(el.dataset.metric)}});
+});
 $("bulkPaymentDate").onclick=()=>openBulkPaymentModal();
 $("bulkClearPayment").onclick=clearBulkPaymentDate;
 $("bulkDelete").onclick=bulkDelete;

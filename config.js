@@ -20,12 +20,14 @@ const defaultData = {
     {id:"nubank", name:"Nubank", limit:0, closing:10, due:19},
     {id:"picpay", name:"PicPay", limit:0, closing:10, due:19}
   ],
-  categories: ["Casa","Alimentação","Transporte","Contas","Lazer","Compras","Saúde","Educação","Investimentos","Doações","Empréstimos cedidos","Outros"],
+  // Categorias padrão, já em ordem alfabética (na aba Categorias dá para mudar a ordem com ▲ ▼)
+  categories: ["Cartão de Crédito Nubank","Cartão de Crédito Picpay","Casa","Compras","Contas","Doações","Educação","Empréstimos cedidos","Investimentos","Lazer","Outros","Saúde","Transporte","Você"],
+  categoriesV2: true,   // marca que as categorias padrão novas já foram aplicadas (evita recriar categorias que você excluir)
   rules: [
     {id:"r1", keyword:"uber", category:"Transporte"},
     {id:"r2", keyword:"99", category:"Transporte"},
     {id:"r3", keyword:"posto", category:"Transporte"},
-    {id:"r4", keyword:"mercado", category:"Alimentação"}
+    {id:"r4", keyword:"mercado", category:"Casa"}
   ],
   importLog: [],
   activityLog: [],

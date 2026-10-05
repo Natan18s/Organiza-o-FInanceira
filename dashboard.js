@@ -12,7 +12,7 @@ function pctText(p){ if(p===null) return "—"; if(p>0&&p<0.01) return "<0,01%";
 // Largura da barra (0 a 100). Com entradas, 100% da barra = todas as entradas do mês; sem entradas, compara com o maior valor.
 function barWidth(value,income,fallbackMax){ return income>0 ? Math.min(100,value/income*100) : (fallbackMax>0 ? value/fallbackMax*100 : 0); }
 
-// Desenha a aba Resumo: os 4 cards do topo, barras, empréstimos, fluxo de caixa, pendências e histórico.
+// Desenha a aba Resumo: os 4 cards do topo, categorias, cartões, empréstimos, fluxo de caixa, pendências e histórico.
 function renderDashboard(){
   // ETAPA 1 — Números do mês (só cálculos, nada é desenhado ainda)
   const txPurchase=txForMonth(month);          // usado só para as Entradas (dinheiro que entrou de fato neste mês)
@@ -32,24 +32,9 @@ function renderDashboard(){
   $("mOwn").textContent=fmtMoney(own);
   $("mBalance").textContent=fmtMoney(projected);
   $("mBalance").className=""+(projected>=0?"positive":"negative");
-
-  // Balanço visual: o mesmo cálculo do Saldo previsto (Entradas x Gasto realmente seu)
-  const maxBal=Math.max(income,own,1);
-  $("balanceBars").innerHTML=`
-    <div class="bar-row bar-click" data-income-detail="all" title="Ver entradas"><div class="bar-label"><span>Entradas</span><b class="positive">${fmtMoney(income)}</b></div><div class="bar"><i style="width:${income>0?100:0}%;background:var(--green)"></i></div></div>
-    <div class="bar-row bar-click" data-own-detail="1" title="Ver gastos"><div class="bar-label"><span>Gasto realmente seu (${pctText(pctOfIncome(own,income))} das entradas)</span><b class="negative">${fmtMoney(own)}</b></div><div class="bar"><i style="width:${barWidth(own,income,maxBal)}%;background:var(--red)"></i></div></div>
-    <div class="field-note">Saldo previsto = Entradas − Gasto realmente seu, ambos contados no mês do pagamento previsto (não no mês da compra). "Saídas previstas no mês" (abaixo) é o valor cheio da fatura, incluindo a parte que outras pessoas te devem. Toque numa barra para ver os lançamentos.</div>`;
-  $("balanceBars").querySelector("[data-income-detail]").onclick=()=>showIncomeDetail("all");
-  $("balanceBars").querySelector("[data-own-detail]").onclick=()=>showOwnDetail();
-
-  // Entradas por origem: salário/normal, devolução de empréstimo, outros reembolsos
-  const incRows=[
-    {label:"Salário e outras entradas",v:incB.normal,color:"#2563eb",origin:"normal"},
-    {label:"Devolução de empréstimos cedidos",v:incB.loan,color:"#15803d",origin:"loan"},
-    {label:"Outros reembolsos recebidos",v:incB.reimb,color:"#7c3aed",origin:"reimb"}
-  ].filter(r=>r.v>0.004);
-  $("incomeBreakdown").innerHTML=incRows.length ? incRows.map(r=>{const pct=incB.total>0?Math.round(r.v/incB.total*100):0;return `<div class="bar-row bar-click" data-origin="${r.origin}" title="Ver entradas"><div class="bar-label"><span>${r.label} (${pct}%)</span><b>${fmtMoney(r.v)}</b></div><div class="bar"><i style="width:${pct}%;background:${r.color}"></i></div></div>`}).join("") : '<div class="empty">Nenhuma entrada neste mês.</div>';
-  $("incomeBreakdown").querySelectorAll("[data-origin]").forEach(el=>el.onclick=()=>showIncomeDetail(el.dataset.origin));
+  // Quanto saídas e gasto próprio representam das entradas (texto pequeno dentro dos cards)
+  $("mScheduledPct").textContent=income>0?`${pctText(pctOfIncome(scheduled,income))} das entradas`:"";
+  $("mOwnPct").textContent=income>0?`${pctText(pctOfIncome(own,income))} das entradas`:"";
 
   // Cards de empréstimos: o que ainda deve voltar e o que foi emprestado no mês
   $("mLoanReceivable").textContent=fmtMoney(loanReceivable);
@@ -115,6 +100,9 @@ function renderDashboard(){
     const exists=a.txId&&data.transactions.some(t=>t.id===a.txId);
     return `<div class="activity-item${exists?" clickable":""}"${exists?` onclick="goToTransaction('${a.txId}')" title="Ver em Lançamentos"`:""}><span class="activity-icon">${ACTIVITY_ICONS[a.kind]||"•"}</span><div class="activity-main"><b>${esc(a.text)}</b><div class="muted">${esc(a.detail||"")}</div></div><div class="activity-when muted">${fmtWhen(a.at)}</div></div>`;
   }).join("")+(log.length>100?`<div class="muted" style="padding:8px 0">Mostrando os 100 mais recentes de ${log.length}.</div>`:"") : '<div class="empty">Nenhuma atividade registrada ainda. O que você lançar, editar ou excluir daqui para frente aparece aqui.</div>';
+
+  // Planilha do mês (gastos por categoria + entradas + saldo)
+  renderSheet();
 }
 
 // Tabela de gastos usada nos painéis de detalhe (categoria, cartão, gasto realmente seu).
@@ -164,6 +152,85 @@ function showCardDetail(id){
   const rows=scheduledPaymentsForMonth(month).filter(t=>t.cardId===id).sort(byNewest);
   const total=rows.reduce((s,t)=>s+t.value,0);
   openModal(`${c?.name||"Cartão"} · compras de ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · total <b>${fmtMoney(total)}</b></div>`+detailTable(rows,t=>t.value));
+}
+
+// ====================================================================
+// Planilha do mês: mesma visão da planilha de controle (despesas por categoria, entradas e saldo)
+// ====================================================================
+
+// Data curta DD/MM a partir de AAAA-MM-DD.
+const shortDate=d=>d.slice(8,10)+"/"+d.slice(5,7);
+
+// Desenha a "Planilha do mês": para cada categoria, as despesas com pagamento previsto no mês, o subtotal, depois as entradas e o saldo.
+function renderSheet(){
+  const box=$("sheetView"); if(!box)return;
+  const sched=scheduledPaymentsForMonth(month);
+  const incomes=txForMonth(month).filter(t=>t.type==="income");
+  if(!sched.length&&!incomes.length){ box.innerHTML='<div class="empty">Sem lançamentos neste mês.</div>'; return; }
+
+  // 1) Despesas agrupadas por categoria (cada divisão do gasto entra na sua categoria, pelo valor cheio)
+  const byCat={};
+  sched.forEach(t=>(t.splits||[]).forEach(s=>{ (byCat[s.category]=byCat[s.category]||[]).push({t,s}); }));
+  const cats=[...data.categories.filter(c=>byCat[c]),...Object.keys(byCat).filter(c=>!data.categories.includes(c))];   // segue a ordem da aba Categorias
+  let totalOut=0, html="";
+  cats.forEach(cat=>{
+    const items=byCat[cat].sort((a,b)=>(a.t.paymentDate||a.t.date).localeCompare(b.t.paymentDate||b.t.date)||a.t.description.localeCompare(b.t.description,"pt-BR"));
+    const sub=items.reduce((sum,x)=>sum+Number(x.s.amount||0),0); totalOut+=sub;
+    items.forEach(({t,s},i)=>{
+      const pd=t.paymentDate||t.date, par=t.installments>1?` ${t.installmentNo||1}/${t.installments}`:"";
+      const who=s.ownerId!=="self"?` <span class="tag">${esc(data.people.find(p=>p.id===s.ownerId)?.name||"Outra pessoa")}</span>`:"";
+      html+=`<tr class="sheet-row" onclick="goToTransaction('${t.id}')" title="Ver em Lançamentos">${i===0?`<td class="sheet-cat" rowspan="${items.length}">${esc(cat)}</td>`:""}<td>${esc(t.description)}${par}${who}</td><td class="sheet-date">${shortDate(pd)}${t.paymentStatus==="paid"?' <span class="positive" title="Já pago">✓</span>':""}</td><td class="right">${fmtMoney(s.amount)}</td>${i===0?`<td class="sheet-sub right" rowspan="${items.length}">${fmtMoney(sub)}</td>`:""}</tr>`;
+    });
+  });
+  html+=`<tr class="sheet-total sheet-out"><td colspan="3">Total gasto no mês</td><td colspan="2" class="right">${fmtMoney(totalOut)}</td></tr>`;
+
+  // 2) Entradas em três grupos: salário/normais, extras (reembolsos) e devolução de empréstimos
+  const groups=[["normal","Entradas do salário e outras"],["reimb","Entradas extras (reembolsos)"],["loan","Entradas de empréstimos cedidos"]];
+  let totalIn=0;
+  groups.forEach(([key,label])=>{
+    const items=incomes.filter(t=>incomeOrigin(t)===key).sort((a,b)=>a.date.localeCompare(b.date)||a.description.localeCompare(b.description,"pt-BR"));
+    if(!items.length)return;
+    const sub=items.reduce((sum,t)=>sum+t.value,0); totalIn+=sub;
+    items.forEach((t,i)=>{
+      html+=`<tr class="sheet-row" onclick="goToTransaction('${t.id}')" title="Ver em Lançamentos">${i===0?`<td class="sheet-cat sheet-cat-in" rowspan="${items.length}">${label}</td>`:""}<td>${esc(t.description)}</td><td class="sheet-date">${shortDate(t.date)}</td><td class="right">${fmtMoney(t.value)}</td>${i===0?`<td class="sheet-sub right" rowspan="${items.length}">${fmtMoney(sub)}</td>`:""}</tr>`;
+    });
+  });
+  html+=`<tr class="sheet-total sheet-in"><td colspan="3">Soma das entradas</td><td colspan="2" class="right">${fmtMoney(totalIn)}</td></tr>`;
+
+  // 3) Saldo do mês = entradas - total gasto (valores cheios, como na planilha)
+  const bal=totalIn-totalOut;
+  html+=`<tr class="sheet-total sheet-bal"><td colspan="3">Saldo do mês</td><td colspan="2" class="right">${fmtMoney(bal)}</td></tr>`;
+
+  box.innerHTML=`<div class="table-wrap sheet"><table class="sheet-table"><thead><tr><th>Categoria</th><th>Despesas e descrição</th><th>Pagamento previsto</th><th class="right">Valor previsto (R$)</th><th class="right">Soma por categoria</th></tr></thead><tbody>${html}</tbody></table></div><div class="field-note">Os valores são cheios (incluem a parte de outras pessoas, marcada com o nome). Por isso o Saldo do mês aqui pode ser menor que o "Saldo previsto" do topo, que desconta só a sua parte. ✓ = já pago.</div>`;
+}
+
+// ====================================================================
+// Cards do topo clicáveis: cada um abre a lista de lançamentos que formam o valor
+// ====================================================================
+
+// Abre o painel do card tocado: income (entradas), scheduled (saídas previstas), own (gasto realmente seu) ou balance (saldo previsto).
+function showMetricDetail(kind){
+  if(kind==="income") showIncomeDetail("all");
+  else if(kind==="scheduled") showScheduledDetail();
+  else if(kind==="own") showOwnDetail();
+  else if(kind==="balance") showBalanceDetail();
+}
+
+// Painel com todas as saídas previstas do mês (valor cheio).
+function showScheduledDetail(){
+  const rows=scheduledPaymentsForMonth(month).sort(byNewest);
+  const total=rows.reduce((s,t)=>s+t.value,0);
+  openModal(`Saídas previstas · ${fmtMonthLabel(month)}`,`<div class="muted" style="margin-bottom:8px">${rows.length} lançamento(s) · total <b>${fmtMoney(total)}</b> (valor cheio, incluindo a parte de outras pessoas)</div>`+detailTable(rows,t=>t.value));
+}
+
+// Painel do Saldo previsto: mostra a conta (Entradas - Gasto realmente seu) e as duas listas que formam o resultado.
+function showBalanceDetail(){
+  const inc=txForMonth(month).filter(t=>t.type==="income").sort(byNewest);
+  const own=scheduledPaymentsForMonth(month).filter(t=>ownAmount(t)>0.004).sort(byNewest);
+  const ti=inc.reduce((s,t)=>s+t.value,0), to=own.reduce((s,t)=>s+ownAmount(t),0), bal=ti-to;
+  openModal(`Saldo previsto · ${fmtMonthLabel(month)}`,
+    `<div class="bal-grid"><div class="loan-box"><span>Entradas</span><strong class="positive">${fmtMoney(ti)}</strong></div><div class="loan-box"><span>Gasto realmente seu</span><strong class="negative">${fmtMoney(to)}</strong></div><div class="loan-box"><span>Saldo previsto</span><strong class="${bal>=0?"positive":"negative"}">${fmtMoney(bal)}</strong></div></div>`+
+    `<h3>Entradas (${inc.length})</h3>`+incomeDetailTable(inc)+`<h3>Gasto realmente seu (${own.length})</h3>`+detailTable(own,ownAmount));
 }
 
 // Filtro do fluxo de caixa: all (todos), paid (já pagos) ou pending (não pagos).
