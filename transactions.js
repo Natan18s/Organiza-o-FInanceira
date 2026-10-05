@@ -70,11 +70,11 @@ function renderTransactions(){
     const cls=t.type==="expense"?"negative":"positive";
     return `<tr id="tx-${t.id}">
       <td class="select-col"><input class="tx-check" type="checkbox" aria-label="Selecionar lançamento" value="${t.id}" ${selectedTxIds.has(t.id)?"checked":""} onchange="toggleSelect('${t.id}',this.checked)"></td>
-      <td>${fmtDate(t.date)}</td><td><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}${t.type==="expense"&&t.date.slice(0,7)!==m?`<div><span class="tag">Compra de ${fmtMonthLabel(t.date)} · pagamento neste mês</span></div>`:""}</td>
-      <td>${t.type==="expense"?categoryLabels(t):t.source==="reimbursement"?'<span class="pill">Reembolso</span>':"—"}</td>
-      <td>${paymentLabel(t)}</td><td>${peopleLabels(t)}</td><td>${paymentDateLabel(t)}</td><td>${par}</td>
-      <td class="right ${cls}">${val}</td>
-      <td><div class="row-actions">${t.type!=="card_payment"?`<button class="btn" onclick="editTransaction('${t.id}')">Editar</button>`:""}<button class="btn ghost" onclick="removeTransaction('${t.id}')">Excluir</button></div></td>
+      <td class="c-date" data-label="Data">${fmtDate(t.date)}</td><td class="c-desc"><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}${t.type==="expense"&&t.date.slice(0,7)!==m?`<div><span class="tag">Compra de ${fmtMonthLabel(t.date)} · pagamento neste mês</span></div>`:""}</td>
+      <td class="${t.type==="expense"||t.source==="reimbursement"?"":"c-empty"}" data-label="Categoria">${t.type==="expense"?categoryLabels(t):t.source==="reimbursement"?'<span class="pill">Reembolso</span>':"—"}</td>
+      <td data-label="Forma">${paymentLabel(t)}</td><td data-label="Responsável">${peopleLabels(t)}</td><td data-label="Pag. previsto">${paymentDateLabel(t)}</td><td class="${par==="—"?"c-empty":""}" data-label="Parcela">${par}</td>
+      <td class="right c-val ${cls}">${val}</td>
+      <td class="c-act"><div class="row-actions">${t.type!=="card_payment"?`<button class="btn" onclick="editTransaction('${t.id}')">Editar</button>`:""}<button class="btn ghost" onclick="removeTransaction('${t.id}')">Excluir</button></div></td>
     </tr>`;
   }).join("") : '<tr><td colspan="10" class="empty">Nenhum lançamento encontrado.</td></tr>';
   // 4) Mostra ou esconde a barra de ações em massa

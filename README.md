@@ -8,7 +8,7 @@ App de organização financeira em HTML + CSS + JavaScript puro (sem instalar na
 3. Todo trecho de código tem um comentário em português dizendo O QUE ele faz. Mantenha esse padrão nos trechos novos e atualize o comentário se o comportamento mudar.
 4. São scripts clássicos, sem módulos: as funções são globais (o HTML usa `onclick="..."`) e a ordem de carregamento no `index.html` importa. `main.js` é sempre o último.
 5. Os dados são de uma pessoa real, guardados no aparelho: nunca mude o formato salvo sem uma migração em `loadData` / `normalizeTransaction` (`storage.js`).
-6. Ao alterar qualquer arquivo, aumente a versão do cache em `sw.js` (`meu-controle-v10` -> `v11`). Se criar um arquivo novo, inclua-o na lista `FILES` do `sw.js` e no `index.html`.
+6. Ao alterar qualquer arquivo, aumente a versão do cache em `sw.js` (`meu-controle-v11` -> `v12`). Se criar um arquivo novo, inclua-o na lista `FILES` do `sw.js` e no `index.html`.
 7. Antes de entregar, confira se a mudança respeita as "Regras de negócio" abaixo.
 
 ## Arquivos
@@ -23,7 +23,8 @@ App de organização financeira em HTML + CSS + JavaScript puro (sem instalar na
 - `calculations.js` — cálculos: entradas, gasto realmente seu, empréstimos, vencimentos
 - `storage.js` — salvar/carregar (localStorage) e histórico de atividades
 - `ui.js` — aviso rápido, painel (modal), troca de aba, mês visto, redesenho geral
-- `dashboard.js` — aba Resumo
+- `dashboard.js` — aba Resumo (cards do topo, Planilha do mês, painéis de detalhe)
+- `sheet-drag.js` — arrastar categorias (segurar e arrastar) na Planilha do mês
 - `transactions.js` — aba Lançamentos, seleção em massa e formulário de gasto/entrada
 - `cadastros.js` — Cartões, Pessoas, Categorias e Regras
 - `importer.js` — leitura de CSV/OFX
@@ -86,5 +87,7 @@ data = {
 - A categoria "Empréstimos cedidos" é especial: é dinheiro emprestado. O que volta aparece à parte e não entra no Saldo previsto como previsão.
 - Resumo: os 4 cards do topo são clicáveis (abrem a lista de lançamentos). A "Planilha do mês" mostra despesas por categoria (valor cheio, na ordem da aba Categorias), entradas e saldo; o saldo dela usa valores cheios, por isso pode diferir do "Saldo previsto" do topo.
 - Categorias: `data.categories` é uma lista de nomes na ordem escolhida pelo usuário (▲ ▼ na aba Categorias). `categoriesV2` marca a migração única que juntou as categorias padrão e ordenou em ordem alfabética.
+- Botão voltar do celular: cada aba e cada painel aberto ganham uma entrada no histórico (`history.pushState`, em `ui.js`); o evento `popstate` (em `main.js`) fecha o painel ou volta para a aba anterior.
+- Celular (até 680px): tabelas de Lançamentos e de detalhes viram "cartões" via CSS (`data-label` nas células); as abas viram uma grade 4x2; o Fluxo de caixa começa recolhido.
 - Aba Lançamentos: "Selecionar" marca gastos e entradas; definir/limpar pagamento previsto vale só para gastos; excluir vale para tudo e pode ser desfeito.
 - Tema: padrão claro; a escolha fica em `localStorage` na chave `meu-controle-theme` (fora do backup).

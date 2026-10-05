@@ -80,6 +80,15 @@ $("restoreFromPaste").onclick=restoreFromText;
 $("restoreBackup").onclick=()=>$("backupInput").click();
 $("backupInput").onchange=restoreBackup;
 
+// ----- Botão voltar do celular: fecha o painel aberto ou volta para a aba anterior -----
+history.replaceState({tab:"dashboard"},"");   // entrada inicial do histórico (aba Resumo)
+window.addEventListener("popstate",e=>{
+  if(ignorePop>0){ ignorePop--; return; }                                  // evento causado pelo próprio app ao fechar o painel
+  if(!$("modal").classList.contains("hidden")){ closeModal("pop"); return; }   // 1º voltar: fecha o painel aberto
+  const tab=(e.state&&e.state.tab)||"dashboard";
+  if(tab!==currentTab) switchTab(tab,true);                                // 2º voltar: volta para a aba anterior
+});
+
 // ----- Início: desenha todas as telas -----
 // Start
 renderAll();

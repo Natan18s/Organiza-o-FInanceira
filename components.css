@@ -88,11 +88,19 @@ tr.row-highlight{animation:rowFlash 2.8s ease}
 .bal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:6px}
 
 /* ===== Planilha do mês ===== */
+/* cores alternadas por categoria: uma clara e outra mais escura (como na planilha do Excel) */
+:root{--sheet-a:#f5f8fd;--sheet-b:#d8e1f1;--sheet-in-a:#eef9f2;--sheet-in-b:#cfe9da}
+:root[data-theme="dark"]{--sheet-a:#16213b;--sheet-b:#263a63;--sheet-in-a:#12271c;--sheet-in-b:#1d412d}
+.sheet-g0 td{background:var(--sheet-a)}.sheet-g1 td{background:var(--sheet-b)}
+.sheet-in-g0 td{background:var(--sheet-in-a)}.sheet-in-g1 td{background:var(--sheet-in-b)}
+tr[data-gfirst] td{border-top:2px solid var(--line-strong)}
 .sheet-table{min-width:520px}
 .sheet-table th,.sheet-table td{font-size:13px}
-.sheet-cat{font-weight:700;background:var(--soft);border-right:1px solid var(--line);min-width:120px;vertical-align:middle}
+.sheet-cat{font-weight:700;border-right:1px solid var(--line-strong);min-width:120px;vertical-align:middle;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.sheet-cat .grip{color:var(--muted);font-weight:400}
+.sheet-cat-sub{display:none}
 .sheet-cat-in{color:var(--green)}
-.sheet-sub{font-weight:700;background:var(--soft);border-left:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+.sheet-sub{font-weight:700;border-left:1px solid var(--line-strong);vertical-align:middle;white-space:nowrap}
 .sheet-date{white-space:nowrap;color:var(--muted)}
 .sheet-row{cursor:pointer}
 .sheet-row:hover td:not(.sheet-cat):not(.sheet-sub){background:var(--hover)}
@@ -100,6 +108,12 @@ tr.row-highlight{animation:rowFlash 2.8s ease}
 .sheet-out td{background:var(--own-bg);color:var(--red)}
 .sheet-in td{background:rgba(22,163,74,.14);color:var(--green)}
 .sheet-bal td{background:rgba(245,158,11,.18);color:var(--text)}
+/* arrastar categorias */
+.sheet-ghost{position:fixed;z-index:60;pointer-events:none;background:var(--btn);color:#fff;padding:8px 14px;border-radius:10px;font-weight:700;font-size:14px;box-shadow:var(--lift)}
+.sheet-drag-on,.sheet-drag-on *{user-select:none;-webkit-user-select:none;cursor:grabbing!important}
+tr.sheet-dragging td{opacity:.35}
+.sheet-drop-before td{box-shadow:inset 0 4px 0 var(--btn)}
+.sheet-drop-after td,td.sheet-drop-after{box-shadow:inset 0 -4px 0 var(--btn)}
 .icon-move{padding:9px 12px}.icon-move:disabled{opacity:.35;cursor:default}
 
 /* ===== Efeito ao passar o mouse (itens clicáveis "sobem" em direção ao usuário) ===== */
@@ -138,4 +152,45 @@ tr.row-highlight{animation:rowFlash 2.8s ease}
   .loan-grid{grid-template-columns:1fr}
   .inst-cols,.inst-row{grid-template-columns:58px 1fr auto}
   .toast{left:12px;right:12px;bottom:14px}
+  /* ===== Compactação geral no celular (menos rolagem, tudo cabe na largura da tela) ===== */
+  html,body{max-width:100%;overflow-x:clip}
+  body{font-size:14px}
+  .app-header{position:static}.bulkbar{top:0}
+  .topbar{flex-wrap:nowrap}.top-actions{flex-wrap:nowrap}.brand{font-size:17px;white-space:nowrap}
+  .container{padding:10px 10px 70px}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;overflow:visible;padding:4px 0 10px}   /* todas as abas visíveis, sem arrastar para o lado */
+  .tab{padding:7px 2px;font-size:11.5px;border-radius:12px;white-space:normal;line-height:1.15;text-align:center}
+  .tab-ico{display:block;margin:0 0 2px;font-size:17px}
+  .page-head{margin-bottom:10px;gap:8px}.page-head h1{font-size:20px;margin-bottom:2px}.page-head p{font-size:12px}
+  .month-nav .month{height:40px;font-size:14px}.month-step{width:40px;height:40px}
+  .card,.card-mini{padding:12px;border-radius:14px}.table-card{padding:0}
+  .card h2{font-size:15px}
+  .metric-grid{gap:8px}.metric{padding:11px;border-radius:12px}.metric span{font-size:11px}.metric strong{font-size:17px}
+  .metric-note,.metric-more{display:none}.metric-pct{font-size:11px}
+  .btn{padding:8px 11px;font-size:13px}
+  input,select,textarea{padding:9px 10px;font-size:16px}   /* 16px evita o zoom automático ao tocar no campo */
+  label{font-size:11.5px}.bar-label{font-size:12px}
+  .modal{padding:8px}.modal-box{padding:14px;border-radius:16px}.modal-head h2{font-size:17px}
+  th,td{padding:8px;font-size:12px}
+  /* Lançamentos e listas de detalhe viram "cartões" (um por linha), sem rolar para o lado */
+  .tx-table,.detail-table table{min-width:0}
+  .tx-table thead,.detail-table thead{display:none}
+  .tx-table,.tx-table tbody,.detail-table table,.detail-table tbody{display:block;width:100%}
+  .tx-table tr,.detail-table tr{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;position:relative;padding:11px 12px;border-bottom:1px solid var(--line)}
+  .tx-table tr{padding-left:44px}
+  .tx-table td,.detail-table td{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;gap:12px;border:0;padding:2px 0;text-align:right;font-size:12.5px;min-width:0}
+  .tx-table td[data-label]::before,.detail-table td[data-label]::before{content:attr(data-label);color:var(--muted);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;text-align:left;flex:none}
+  .tx-table td.c-desc,.detail-table td.c-desc{grid-column:1;grid-row:1;display:block;text-align:left;font-size:14px}
+  .tx-table td.c-val,.detail-table td.c-val{grid-column:2;grid-row:1;display:block;font-size:15px;font-weight:800;white-space:nowrap}
+  .tx-table td.c-act{padding-top:8px}
+  .tx-table td.select-col{position:absolute;left:12px;top:14px;display:block;padding:0}
+  .tx-table td.empty{display:block;text-align:center}
+  .c-empty{display:none!important}
+  /* Planilha do mês no celular: sem coluna lateral; o subtotal aparece embaixo do nome da categoria */
+  .sheet-table{min-width:0}
+  .sheet-table th,.sheet-table td{padding:7px 6px;font-size:12px}
+  .sheet-sub,.sheet-th-sub{display:none}
+  .sheet-cat{min-width:0;width:27%}
+  .sheet-cat-sub{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-top:3px}
+  .sheet-date{font-size:11px}
 }

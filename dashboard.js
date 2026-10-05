@@ -111,7 +111,7 @@ function detailTable(rows,valueOf){
   const body=rows.map(t=>{
     const v=valueOf(t), par=t.installments>1?`${t.installmentNo||1}/${t.installments}`:"—";
     const sub=Math.abs(v-t.value)>0.004?`<div class="muted">de ${fmtMoney(t.value)}</div>`:"";
-    return `<tr><td>${fmtDate(t.date)}</td><td><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}</td><td>${paymentLabel(t)}</td><td>${peopleLabels(t)}</td><td>${paymentDateLabel(t)}</td><td>${par}</td><td class="right negative">- ${fmtMoney(v)}${sub}</td></tr>`;
+    return `<tr><td class="c-date" data-label="Data">${fmtDate(t.date)}</td><td class="c-desc"><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}</td><td data-label="Forma">${paymentLabel(t)}</td><td data-label="Responsável">${peopleLabels(t)}</td><td data-label="Pag. previsto">${paymentDateLabel(t)}</td><td class="${par==="—"?"c-empty":""}" data-label="Parcelas">${par}</td><td class="right negative c-val">- ${fmtMoney(v)}${sub}</td></tr>`;
   }).join("");
   return `<div class="table-wrap detail-table"><table><thead><tr><th>Data</th><th>Descrição</th><th>Forma</th><th>Responsável</th><th>Pagamento previsto</th><th>Parcelas</th><th class="right">Valor</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
@@ -127,7 +127,7 @@ function showCategoryDetail(cat){
 // Tabela de entradas usada no painel de detalhe das entradas.
 function incomeDetailTable(rows){
   if(!rows.length) return '<div class="empty">Nenhuma entrada.</div>';
-  const body=rows.map(t=>`<tr><td>${fmtDate(t.date)}</td><td><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}</td><td class="right positive">+ ${fmtMoney(t.value)}</td></tr>`).join("");
+  const body=rows.map(t=>`<tr><td class="c-date" data-label="Data">${fmtDate(t.date)}</td><td class="c-desc"><b>${esc(t.description)}</b>${t.notes?`<div class="muted">${esc(t.notes)}</div>`:""}</td><td class="right positive c-val">+ ${fmtMoney(t.value)}</td></tr>`).join("");
   return `<div class="table-wrap detail-table"><table><thead><tr><th>Data</th><th>Descrição</th><th class="right">Valor</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -161,7 +161,11 @@ function showCardDetail(id){
 // Data curta DD/MM a partir de AAAA-MM-DD.
 const shortDate=d=>d.slice(8,10)+"/"+d.slice(5,7);
 
+// Clique numa linha da planilha: abre o lançamento (ignorado logo depois de arrastar uma categoria).
+function sheetRowClick(id){ if(sheetDragMoved)return; goToTransaction(id); }
+
 // Desenha a "Planilha do mês": para cada categoria, as despesas com pagamento previsto no mês, o subtotal, depois as entradas e o saldo.
+// Cada categoria tem uma cor (clara/escura alternadas) e pode ser arrastada para mudar a ordem (sheet-drag.js).
 function renderSheet(){
   const box=$("sheetView"); if(!box)return;
   const sched=scheduledPaymentsForMonth(month);
@@ -173,27 +177,28 @@ function renderSheet(){
   sched.forEach(t=>(t.splits||[]).forEach(s=>{ (byCat[s.category]=byCat[s.category]||[]).push({t,s}); }));
   const cats=[...data.categories.filter(c=>byCat[c]),...Object.keys(byCat).filter(c=>!data.categories.includes(c))];   // segue a ordem da aba Categorias
   let totalOut=0, html="";
-  cats.forEach(cat=>{
+  cats.forEach((cat,gi)=>{
     const items=byCat[cat].sort((a,b)=>(a.t.paymentDate||a.t.date).localeCompare(b.t.paymentDate||b.t.date)||a.t.description.localeCompare(b.t.description,"pt-BR"));
     const sub=items.reduce((sum,x)=>sum+Number(x.s.amount||0),0); totalOut+=sub;
     items.forEach(({t,s},i)=>{
       const pd=t.paymentDate||t.date, par=t.installments>1?` ${t.installmentNo||1}/${t.installments}`:"";
       const who=s.ownerId!=="self"?` <span class="tag">${esc(data.people.find(p=>p.id===s.ownerId)?.name||"Outra pessoa")}</span>`:"";
-      html+=`<tr class="sheet-row" onclick="goToTransaction('${t.id}')" title="Ver em Lançamentos">${i===0?`<td class="sheet-cat" rowspan="${items.length}">${esc(cat)}</td>`:""}<td>${esc(t.description)}${par}${who}</td><td class="sheet-date">${shortDate(pd)}${t.paymentStatus==="paid"?' <span class="positive" title="Já pago">✓</span>':""}</td><td class="right">${fmtMoney(s.amount)}</td>${i===0?`<td class="sheet-sub right" rowspan="${items.length}">${fmtMoney(sub)}</td>`:""}</tr>`;
+      html+=`<tr class="sheet-row sheet-g${gi%2}" data-g="${esc(cat)}"${i===0?" data-gfirst":""} onclick="sheetRowClick('${t.id}')" title="Ver em Lançamentos">${i===0?`<td class="sheet-cat" rowspan="${items.length}" data-cat="${esc(cat)}" onclick="event.stopPropagation()" title="Segure e arraste para mudar a ordem"><span class="grip">⠿</span> ${esc(cat)}<div class="sheet-cat-sub">${fmtMoney(sub)}</div></td>`:""}<td>${esc(t.description)}${par}${who}</td><td class="sheet-date">${shortDate(pd)}${t.paymentStatus==="paid"?' <span class="positive" title="Já pago">✓</span>':""}</td><td class="right">${fmtMoney(s.amount)}</td>${i===0?`<td class="sheet-sub right" rowspan="${items.length}">${fmtMoney(sub)}</td>`:""}</tr>`;
     });
   });
   html+=`<tr class="sheet-total sheet-out"><td colspan="3">Total gasto no mês</td><td colspan="2" class="right">${fmtMoney(totalOut)}</td></tr>`;
 
   // 2) Entradas em três grupos: salário/normais, extras (reembolsos) e devolução de empréstimos
   const groups=[["normal","Entradas do salário e outras"],["reimb","Entradas extras (reembolsos)"],["loan","Entradas de empréstimos cedidos"]];
-  let totalIn=0;
+  let totalIn=0, gj=0;
   groups.forEach(([key,label])=>{
     const items=incomes.filter(t=>incomeOrigin(t)===key).sort((a,b)=>a.date.localeCompare(b.date)||a.description.localeCompare(b.description,"pt-BR"));
     if(!items.length)return;
     const sub=items.reduce((sum,t)=>sum+t.value,0); totalIn+=sub;
     items.forEach((t,i)=>{
-      html+=`<tr class="sheet-row" onclick="goToTransaction('${t.id}')" title="Ver em Lançamentos">${i===0?`<td class="sheet-cat sheet-cat-in" rowspan="${items.length}">${label}</td>`:""}<td>${esc(t.description)}</td><td class="sheet-date">${shortDate(t.date)}</td><td class="right">${fmtMoney(t.value)}</td>${i===0?`<td class="sheet-sub right" rowspan="${items.length}">${fmtMoney(sub)}</td>`:""}</tr>`;
+      html+=`<tr class="sheet-row sheet-in-g${gj%2}" onclick="sheetRowClick('${t.id}')" title="Ver em Lançamentos">${i===0?`<td class="sheet-cat sheet-cat-in" rowspan="${items.length}">${label}<div class="sheet-cat-sub">${fmtMoney(sub)}</div></td>`:""}<td>${esc(t.description)}</td><td class="sheet-date">${shortDate(t.date)}</td><td class="right">${fmtMoney(t.value)}</td>${i===0?`<td class="sheet-sub right" rowspan="${items.length}">${fmtMoney(sub)}</td>`:""}</tr>`;
     });
+    gj++;
   });
   html+=`<tr class="sheet-total sheet-in"><td colspan="3">Soma das entradas</td><td colspan="2" class="right">${fmtMoney(totalIn)}</td></tr>`;
 
@@ -201,7 +206,8 @@ function renderSheet(){
   const bal=totalIn-totalOut;
   html+=`<tr class="sheet-total sheet-bal"><td colspan="3">Saldo do mês</td><td colspan="2" class="right">${fmtMoney(bal)}</td></tr>`;
 
-  box.innerHTML=`<div class="table-wrap sheet"><table class="sheet-table"><thead><tr><th>Categoria</th><th>Despesas e descrição</th><th>Pagamento previsto</th><th class="right">Valor previsto (R$)</th><th class="right">Soma por categoria</th></tr></thead><tbody>${html}</tbody></table></div><div class="field-note">Os valores são cheios (incluem a parte de outras pessoas, marcada com o nome). Por isso o Saldo do mês aqui pode ser menor que o "Saldo previsto" do topo, que desconta só a sua parte. ✓ = já pago.</div>`;
+  box.innerHTML=`<div class="table-wrap sheet"><table class="sheet-table"><thead><tr><th>Categoria</th><th>Despesas e descrição</th><th>Pagamento previsto</th><th class="right">Valor previsto (R$)</th><th class="right sheet-th-sub">Soma por categoria</th></tr></thead><tbody>${html}</tbody></table></div><div class="field-note">💡 Segure uma categoria por meio segundo e arraste para mudar a ordem (a mesma ordem da aba Categorias). Os valores são cheios (incluem a parte de outras pessoas, marcada com o nome); por isso o Saldo do mês aqui pode ser menor que o "Saldo previsto" do topo. ✓ = já pago.</div>`;
+  initSheetDrag(box);   // liga o "segurar e arrastar" nas categorias (sheet-drag.js)
 }
 
 // ====================================================================

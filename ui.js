@@ -16,12 +16,25 @@ function showToast(msg,actionLabel,actionFn){
 // Aviso rápido simples, sem botão.
 const toast = msg => showToast(msg);
 
-// Troca de aba: mostra a seção escolhida e esconde as outras.
-function switchTab(tab){
+// ----- Botão "voltar" do celular -----
+// Cada aba aberta e cada painel aberto ganham uma entrada no histórico do navegador. Assim o botão voltar fecha o painel
+// ou volta para a aba anterior, em vez de sair do site (o tratamento do evento "popstate" fica em main.js).
+let currentTab="dashboard";   // aba que está aberta
+let modalHistory=false;       // true quando o painel aberto tem uma entrada própria no histórico
+let ignorePop=0;              // quantos eventos "popstate" causados pelo próprio app devem ser ignorados
+
+// Troca de aba: mostra a seção escolhida e esconde as outras. fromHistory=true quando veio do botão voltar (não cria entrada nova).
+function switchTab(tab,fromHistory){
   document.querySelectorAll(".page").forEach(p=>p.classList.toggle("hidden",p.id!==tab));
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
   if(tab==="transactions") renderTransactions();
   if(tab==="categories") renderCategories();
+  if(fromHistory!==true){
+    if(modalHistory){ history.replaceState({tab},""); modalHistory=false; }   // o painel foi fechado por navegação: a entrada dele vira a da nova aba
+    else if(tab!==currentTab) history.pushState({tab},"");
+  }
+  currentTab=tab;
+  window.scrollTo(0,0);
 }
 
 // Muda o mês visto e sincroniza os três seletores de mês (Resumo, Lançamentos e Cartões).
@@ -34,7 +47,7 @@ function renderAll(){ renderDashboard(); renderTransactions(); renderCards(); re
 function goToTransaction(id){
   const t=data.transactions.find(x=>x.id===id);
   if(!t){toast("Esse lançamento não existe mais.");return}
-  closeModal();
+  closeModal("keep");   // fecha o painel sem mexer no histórico (switchTab ajusta)
   $("txSearch").value="";$("txType").value="";
   const inView=t.date.slice(0,7)===month||(t.type==="expense"&&(t.paymentDate||t.date).slice(0,7)===month);
   if(!inView) setMonth(t.date.slice(0,7));
@@ -51,7 +64,15 @@ function openModal(title, body){
   $("modal").classList.remove("hidden");
   document.documentElement.classList.add("modal-open");   // só o painel rola; a tela de trás fica parada
   $("modal").querySelector(".modal-box").scrollTop=0;
+  if(!modalHistory){ history.pushState({tab:currentTab,modal:true},""); modalHistory=true; }   // o botão voltar do celular vai fechar este painel
 }
 
 // Fecha o painel e libera a rolagem da tela.
-function closeModal(){$("modal").classList.add("hidden");document.documentElement.classList.remove("modal-open")}
+// mode="pop": veio do botão voltar (a entrada do histórico já saiu). mode="keep": navegação vai cuidar do histórico. Sem mode (✕, fora, Esc, salvar): remove a entrada do painel.
+function closeModal(mode){
+  $("modal").classList.add("hidden");
+  document.documentElement.classList.remove("modal-open");
+  if(!modalHistory||mode==="keep")return;
+  modalHistory=false;
+  if(mode!=="pop"){ ignorePop++; history.back(); }
+}
