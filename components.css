@@ -183,7 +183,7 @@ tr.sheet-dragging td{opacity:.35}
   .tx-table td.c-desc,.detail-table td.c-desc{grid-column:1;grid-row:1;display:block;text-align:left;font-size:14px}
   .tx-table td.c-val,.detail-table td.c-val{grid-column:2;grid-row:1;display:block;font-size:15px;font-weight:800;white-space:nowrap}
   .tx-table td.c-act{padding-top:8px}
-  .tx-table td.select-col{position:absolute;left:12px;top:14px;display:block;padding:0}
+  .tx-table td.select-col{position:absolute;grid-column:auto;grid-row:auto;left:12px;top:14px;display:block;width:auto;padding:0}   /* grid-column:auto: sem isso a caixa ficava dentro da área da grade e cobria o nome */
   .tx-table td.empty{display:block;text-align:center}
   .c-empty{display:none!important}
   /* Planilha do mês no celular: sem coluna lateral; o subtotal aparece embaixo do nome da categoria */
