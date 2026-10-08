@@ -1,5 +1,5 @@
 // ====================================================================
-// cadastros.js — Cartões, Pessoas, Categorias e Regras
+// cadastros.js — Cartões, Pessoas, Categorias e Regras (Categorias, Pessoas e Regras aparecem juntas na aba Regras)
 // Telas de cadastro e seus painéis de criar/editar/excluir.
 // ====================================================================
 
@@ -35,17 +35,101 @@ function applyRule(description){
   return rule?.category || "Outros";
 }
 
-// Lista as categorias com botões para subir/descer (▲ ▼), editar e excluir. A ordem daqui é a ordem usada nos formulários e na Planilha do mês.
+// Lista as categorias (aba Regras). Segure uma categoria e arraste para mudar a ordem; a alça ⠿ arrasta na hora.
+// A ordem daqui é a ordem usada nos formulários e na Planilha do mês.
 function renderCategories(){
-  const last=data.categories.length-1;
-  $("categoriesList").innerHTML=data.categories.map((c,i)=>`<div class="category-row"><div class="category-name"><span class="tag">#${i+1}</span><b>${esc(c)}</b></div><div class="row-actions"><button class="btn icon-move" title="Subir" aria-label="Subir ${esc(c)}" ${i===0?"disabled":""} onclick="moveCategory(${i},-1)">▲</button><button class="btn icon-move" title="Descer" aria-label="Descer ${esc(c)}" ${i===last?"disabled":""} onclick="moveCategory(${i},1)">▼</button><button class="btn" onclick="editCategory(${i})">Editar</button><button class="btn ghost" onclick="deleteCategory(${i})">Excluir</button></div></div>`).join("");
+  const box=$("categoriesList");
+  box.innerHTML=data.categories.map((c,i)=>`<div class="category-row" data-cat="${esc(c)}"><div class="category-name"><span class="cat-grip" title="Segure e arraste para mudar a ordem" aria-hidden="true">⠿</span><span class="tag">#${i+1}</span><b>${esc(c)}</b></div><div class="row-actions"><button class="btn" onclick="editCategory(${i})">Editar</button><button class="btn ghost" onclick="deleteCategory(${i})">Excluir</button></div></div>`).join("");
+  initCategoryDrag(box);   // liga o "segurar e arrastar" nas linhas
 }
 
-// Move a categoria de posição i uma casa para cima (dir=-1) ou para baixo (dir=1) e salva.
-function moveCategory(i,dir){
-  const j=i+dir; if(j<0||j>=data.categories.length)return;
-  [data.categories[i],data.categories[j]]=[data.categories[j],data.categories[i]];
-  save();
+// ----- Arrastar categorias na lista da aba Regras (mesma ideia da Planilha do mês, em sheet-drag.js) -----
+let catDrag=null;   // arrasto em andamento: {name, row, rows, ghost, target, x, y, raf}
+
+// Liga o arrasto às linhas de categoria. Nos botões Editar/Excluir o toque funciona normal.
+function initCategoryDrag(root){
+  root.querySelectorAll(".category-row[data-cat]").forEach(row=>{
+    row.addEventListener("pointerdown",e=>{
+      if(e.target.closest("button"))return;
+      catPress(e,row,!!e.target.closest(".cat-grip"));   // na alça começa na hora; no resto da linha, só depois de segurar ~0,3 s
+    });
+    row.addEventListener("contextmenu",e=>e.preventDefault());   // evita o menu do toque longo
+  });
+}
+
+// Começa o arrasto (na hora ou após segurar). Se o dedo se mexer antes de segurar o tempo todo, é rolagem da tela e cancela.
+function catPress(e,row,immediate){
+  if(e.pointerType==="mouse"&&e.button!==0)return;
+  const id=e.pointerId,sx=e.clientX,sy=e.clientY;
+  let active=false;
+  const stop=()=>{clearTimeout(timer);document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up);document.removeEventListener("pointercancel",abort)};
+  const start=()=>{active=true;catBegin(row,sx,sy)};
+  const timer=immediate?0:setTimeout(start,320);
+  const move=ev=>{if(ev.pointerId!==id)return;if(!active){if(Math.hypot(ev.clientX-sx,ev.clientY-sy)>10)stop()}else catMove(ev.clientX,ev.clientY)};
+  const up=ev=>{if(ev.pointerId!==id)return;const was=active;stop();if(was)catEnd(true)};
+  const abort=ev=>{if(ev.pointerId!==id)return;const was=active;stop();if(was)catEnd(false)};
+  document.addEventListener("pointermove",move);
+  document.addEventListener("pointerup",up);
+  document.addEventListener("pointercancel",abort);
+  if(immediate)start();
+}
+
+// Impede a rolagem da tela enquanto uma categoria está sendo arrastada.
+const catBlockTouch=e=>e.preventDefault();
+
+// Início do arrasto: cria a "sombra" que acompanha o dedo e marca a linha sendo movida.
+function catBegin(row,x,y){
+  const name=row.dataset.cat;
+  const ghost=document.createElement("div");
+  ghost.className="sheet-ghost";ghost.textContent="⠿ "+name;document.body.appendChild(ghost);
+  catDrag={name,row,rows:[...document.querySelectorAll("#categoriesList .category-row")],ghost,target:null,x,y,raf:0};
+  row.classList.add("cat-dragging");
+  document.body.classList.add("sheet-drag-on");
+  document.addEventListener("touchmove",catBlockTouch,{passive:false});
+  if(navigator.vibrate)navigator.vibrate(25);   // vibração curta avisa que pegou
+  catMove(x,y);
+  catLoop();
+}
+
+// Movimento do dedo/mouse: guarda a posição e leva a sombra junto.
+function catMove(x,y){
+  const d=catDrag;if(!d)return;
+  d.x=x;d.y=y;
+  d.ghost.style.left=(x+12)+"px";d.ghost.style.top=(y-20)+"px";
+}
+
+// Descobre onde a categoria cairia (antes/depois de qual linha) e mostra a linha azul de destino.
+function catUpdateTarget(){
+  const d=catDrag;if(!d)return;
+  d.rows.forEach(r=>r.classList.remove("cat-drop-before","cat-drop-after"));
+  let target=null;
+  for(const r of d.rows){const b=r.getBoundingClientRect();if(d.y<=b.bottom){target={row:r,pos:d.y<(b.top+b.bottom)/2?"before":"after"};break}}
+  if(!target){target={row:d.rows[d.rows.length-1],pos:"after"}}   // abaixo da última categoria
+  if(target.row===d.row){d.target=null;return}                    // soltar sobre si mesma não muda nada
+  d.target={cat:target.row.dataset.cat,pos:target.pos};
+  target.row.classList.add(target.pos==="before"?"cat-drop-before":"cat-drop-after");
+}
+
+// Repete a cada quadro: rola a tela sozinha perto das bordas e atualiza o destino.
+function catLoop(){
+  const d=catDrag;if(!d)return;
+  const h=window.innerHeight;
+  if(d.y<80)window.scrollBy(0,-Math.ceil((80-d.y)/6));
+  else if(d.y>h-80)window.scrollBy(0,Math.ceil((d.y-(h-80))/6));
+  catUpdateTarget();
+  d.raf=requestAnimationFrame(catLoop);
+}
+
+// Fim do arrasto: limpa a tela e, se soltou num destino válido, muda a ordem (moveCategoryTo está em sheet-drag.js e salva).
+function catEnd(commit){
+  const d=catDrag;if(!d)return;
+  catDrag=null;
+  cancelAnimationFrame(d.raf);
+  d.ghost.remove();
+  document.removeEventListener("touchmove",catBlockTouch);
+  document.body.classList.remove("sheet-drag-on");
+  d.rows.forEach(r=>r.classList.remove("cat-dragging","cat-drop-before","cat-drop-after"));
+  if(commit&&d.target)moveCategoryTo(d.name,d.target.cat,d.target.pos);
 }
 
 // Painel para criar ou renomear uma categoria (renomear atualiza lançamentos e regras).

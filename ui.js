@@ -28,7 +28,7 @@ function switchTab(tab,fromHistory){
   document.querySelectorAll(".page").forEach(p=>p.classList.toggle("hidden",p.id!==tab));
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
   if(tab==="transactions") renderTransactions();
-  if(tab==="categories") renderCategories();
+  if(tab==="rules") renderCategories();   // Categorias agora ficam dentro da aba Regras
   if(fromHistory!==true){
     if(modalHistory){ history.replaceState({tab},""); modalHistory=false; }   // o painel foi fechado por navegação: a entrada dele vira a da nova aba
     else if(tab!==currentTab) history.pushState({tab},"");

@@ -12,8 +12,8 @@ button,input,select{font:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--btn);outline-offset:2px}
 
-/* ===== Cabeçalho ===== */
-.app-header{background:var(--header-bg);color:#fff;padding:calc(14px + env(safe-area-inset-top,0px)) 20px 14px;position:sticky;top:0;z-index:10;box-shadow:0 2px 14px rgba(15,23,42,.18)}
+/* ===== Cabeçalho (não fica fixo: rola junto com a página) ===== */
+.app-header{background:var(--header-bg);color:#fff;padding:calc(14px + env(safe-area-inset-top,0px)) 20px 14px;position:static;box-shadow:0 2px 14px rgba(15,23,42,.18)}
 .topbar,.container{max-width:1220px;margin:auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
 .brand{font-size:22px;font-weight:800;letter-spacing:-.01em}.subtitle{font-size:12px;color:rgba(255,255,255,.75);margin-top:2px}
@@ -91,3 +91,5 @@ tbody tr:hover{background:var(--soft)}
 .person-card,.rule-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
 .help p{line-height:1.5}.help p:last-child{margin-bottom:0}
 
+/* Detalhe "Como o reembolso funciona" dentro do card Pessoas (aba Regras) */
+.help-details{margin-top:12px}.help-details summary{cursor:pointer;font-weight:600;color:var(--muted-strong);padding:6px 0}

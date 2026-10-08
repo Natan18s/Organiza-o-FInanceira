@@ -15,11 +15,15 @@ hr{border:0;border-top:1px solid var(--line);margin:20px 0}
 .toast-action{background:#3b6cf6;color:#fff;border:0;border-radius:8px;padding:6px 10px;font-weight:700;font-size:12px;cursor:pointer}
 
 /* ===== Seleção em massa ===== */
-.bulkbar{margin:12px 0;padding:11px 13px;border:1px solid var(--bulk-line);background:var(--bulk-bg);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;position:sticky;top:calc(var(--header-h) + env(safe-area-inset-top,0px) + 6px);z-index:4}
+.bulkbar{margin:12px 0;padding:11px 13px;border:1px solid var(--bulk-line);background:var(--bulk-bg);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:4}
 .bulkbar.hidden{display:none!important}
 .field-note{font-size:11px;color:var(--muted);margin-top:4px}
 .pay-planned{color:var(--amber)}.pay-paid{color:var(--green)}.pay-none{color:var(--muted)}
-.category-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}.category-name{display:flex;align-items:center;gap:8px}
+.category-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}.category-name{display:flex;align-items:center;gap:8px;min-width:0}
+.cat-grip{color:var(--muted);font-size:20px;line-height:1;padding:6px 8px;margin:-6px -2px -6px -8px;touch-action:none;cursor:grab}   /* alça: arrasta na hora, sem precisar segurar */
+.category-row.cat-dragging{opacity:.35}
+.category-row.cat-drop-before{box-shadow:inset 0 4px 0 var(--btn)}
+.category-row.cat-drop-after{box-shadow:inset 0 -4px 0 var(--btn)}
 .split-actions{display:flex;gap:6px;flex-wrap:wrap}.equal-btn{font-size:11px}
 .cashflow-item{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.cashflow-item:last-child{border-bottom:0}
 .cashflow-main{display:flex;gap:8px;align-items:center}.cashflow-dot{width:9px;height:9px;border-radius:50%;background:#3b6cf6;flex:none}.cashflow-dot.income{background:#16a34a}.cashflow-dot.expense{background:#ef4444}
@@ -31,8 +35,18 @@ hr{border:0;border-top:1px solid var(--line);margin:20px 0}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.modal-head h2{margin:0;font-size:20px}
 .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.full{grid-column:1/-1}
 .split-header{display:flex;justify-content:space-between;align-items:center;margin:15px 0 8px;gap:10px}
-.split{display:grid;grid-template-columns:1.2fr 130px 150px 1fr 40px;gap:7px;align-items:end;background:var(--soft);padding:9px;border:1px solid var(--line);border-radius:12px;margin-bottom:7px}
-.split small{display:block;color:var(--muted)}.split-total{display:flex;justify-content:space-between;padding:9px 0;font-weight:700}
+.split{display:grid;grid-template-columns:minmax(0,1.2fr) 120px minmax(0,190px) minmax(0,1fr) 40px;gap:7px;align-items:end;background:var(--soft);padding:9px;border:1px solid var(--line);border-radius:12px;margin-bottom:7px}
+.split>*{min-width:0}
+.split small{display:block;color:var(--muted)}
+/* Cabeçalho de cada campo (rótulo + atalho "Criar ..."): MESMA altura em todas as colunas, para os campos ficarem alinhados e do mesmo tamanho */
+.fld-head{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:26px;margin-bottom:4px}
+.fld-head label{margin:0;white-space:nowrap}
+.mini-link{border:0;background:transparent;color:var(--btn);font-weight:700;font-size:11.5px;padding:3px 0 3px 6px;cursor:pointer;white-space:nowrap}
+.mini-link:hover{text-decoration:underline}
+/* "Criar na hora": ocupa o lugar do campo (mesma altura do select), então nada muda de tamanho */
+.mini-create{display:flex;gap:4px;height:42px}
+.mini-create .mini-input{flex:1;width:auto;min-width:0;height:100%}
+.mini-create .btn{width:38px;height:100%;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}.split-total{display:flex;justify-content:space-between;padding:9px 0;font-weight:700}
 .reimbursed-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px;border:1px solid var(--line);border-radius:10px;margin:7px 0}
 .card-mini{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--surface);box-shadow:var(--shadow)}.card-mini h3{margin:0 0 5px}.card-mini .big{font-size:24px;font-weight:800}
 
@@ -114,7 +128,6 @@ tr[data-gfirst] td{border-top:2px solid var(--line-strong)}
 tr.sheet-dragging td{opacity:.35}
 .sheet-drop-before td{box-shadow:inset 0 4px 0 var(--btn)}
 .sheet-drop-after td,td.sheet-drop-after{box-shadow:inset 0 -4px 0 var(--btn)}
-.icon-move{padding:9px 12px}.icon-move:disabled{opacity:.35;cursor:default}
 
 /* ===== Efeito ao passar o mouse (itens clicáveis "sobem" em direção ao usuário) ===== */
 .btn,.tab,.bar-click,.activity-item.clickable{transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,background .15s ease,border-color .15s ease}
@@ -145,6 +158,8 @@ tr.sheet-dragging td{opacity:.35}
   .split>*{min-width:0}
   .split .category,.split .owner,.split>div:nth-child(2){grid-column:1/-1}   /* 2º filho = campo Valor */
   .split .person{grid-column:1/2}
+  .mini-create{height:50px}.mini-create .mini-input{font-size:17px}.mini-create .btn{width:46px}
+  .fld-head{min-height:24px}
   .split .remove-split{grid-column:2;height:44px;min-width:44px}
   .split input,.split select{width:100%;min-width:0;max-width:100%;height:50px;font-size:17px;padding:0 12px}   /* campos altos e fáceis de tocar (17px também evita o zoom automático do iPhone) */
   .split .split-amount{font-size:20px;font-weight:600}   /* Valor em destaque */
@@ -158,7 +173,7 @@ tr.sheet-dragging td{opacity:.35}
   .app-header{position:static}.bulkbar{top:0}
   .topbar{flex-wrap:nowrap}.top-actions{flex-wrap:nowrap}.brand{font-size:17px;white-space:nowrap}
   .container{padding:10px 10px 70px}
-  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;overflow:visible;padding:4px 0 10px}   /* todas as abas visíveis, sem arrastar para o lado */
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;overflow:visible;padding:4px 0 10px}   /* todas as abas visíveis, sem arrastar para o lado */
   .tab{padding:7px 2px;font-size:11.5px;border-radius:12px;white-space:normal;line-height:1.15;text-align:center}
   .tab-ico{display:block;margin:0 0 2px;font-size:17px}
   .page-head{margin-bottom:10px;gap:8px}.page-head h1{font-size:20px;margin-bottom:2px}.page-head p{font-size:12px}

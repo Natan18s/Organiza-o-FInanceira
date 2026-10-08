@@ -151,19 +151,29 @@ function transactionForm(t=null,type="expense"){
         <div><label>Mês da 1ª parcela lançada</label><input name="firstMonth" id="txFirstMonth" type="month" value="${t?.date?.slice(0,7)||month}" ${lock}></div>
         <div class="full"><div class="install-preview" id="installPreview"></div></div>
       </div>
-      <div class="full"><label>Observação</label><input name="notes" value="${esc(t?.notes||"")}" placeholder="Ex.: fatura de outubro"></div>
     `:`
       <div><label>Origem</label><select name="incomeSource"><option value="normal" ${t?.source!=="reimbursement"?"selected":""}>Entrada normal</option><option value="reimbursement" ${t?.source==="reimbursement"?"selected":""}>Reembolso recebido</option></select></div>
-      <div><label>Observação</label><input name="notes" value="${esc(t?.notes||"")}" placeholder="Ex.: salário, extra..."></div>
     `}</div>
     ${isExpense?`<div class="split-header"><div><b>Divisão do gasto por pessoa</b><div class="field-note">Por padrão o valor total fica com Você. Ao adicionar pessoas, o valor é dividido igualmente entre elas (dá para ajustar depois).</div></div><div class="split-actions"><button type="button" class="btn equal-btn" id="splitEqual">Dividir igualmente</button><button type="button" class="btn" id="addSplit">Adicionar pessoas</button></div></div><div id="splitList">${splits.map((s,i)=>splitRow(s,i,data.categories,data.people)).join("")}</div><div class="split-total"><span>Total dividido</span><span id="splitSum">${fmtMoney(splits.reduce((a,x)=>a+Number(x.amount||0),0))}</span></div><div class="field-note" id="splitHint"></div>`:""}
     <div class="row-actions end" style="margin-top:15px"><button type="button" class="btn ghost" id="cancelTx">Cancelar</button><button class="btn primary">Salvar</button></div>
   </form>`;
 }
 
+// HTML da coluna "Status" de uma linha da divisão: "Não gera reembolso" para Você, ou A receber / Já recebi para outra pessoa.
+function splitStatusCell(ownerId,reimbursed){
+  return `<div class="fld-head"><label>Status</label></div>${ownerId==="self"?`<div class="field-note">Não gera reembolso</div>`:`<select class="split-status"><option value="pending" ${reimbursed!==true?"selected":""}>A receber</option><option value="received" ${reimbursed===true?"selected":""}>Já recebi</option></select>`}`;
+}
+
 // HTML de uma linha da divisão do gasto (categoria, valor, quem paga e status).
+// Todo campo tem um cabeçalho (.fld-head) de mesma altura; Categoria e Quem paga? ganham o atalho de criar na hora (.mini-create ocupa o lugar do select).
 function splitRow(s,i,categories,people){
-  return `<div class="split" data-index="${i}"><div class="category"><label>Categoria</label><select class="split-category">${categories.map(c=>`<option ${c===s.category?"selected":""}>${esc(c)}</option>`).join("")}</select></div><div><label>Valor</label><input class="split-amount" type="number" min="0" step="0.01" value="${Number(s.amount||0)}"></div><div class="owner"><label>Quem paga?</label><select class="split-owner">${people.map(p=>`<option value="${p.id}" ${s.ownerId===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div><div class="person"><label>Status</label>${s.ownerId==="self"?`<div class="field-note">Não gera reembolso</div>`:`<select class="split-status"><option value="pending" ${s.reimbursed!==true?"selected":""}>A receber</option><option value="received" ${s.reimbursed===true?"selected":""}>Já recebi</option></select>`}</div><button type="button" class="btn ghost remove-split" title="Remover">✕</button></div>`;
+  return `<div class="split" data-index="${i}">
+    <div class="category"><div class="fld-head"><label>Categoria</label><button type="button" class="mini-link new-cat">+ Criar categoria</button></div><div class="mini-create hidden"><input class="mini-input" type="text" maxlength="40" placeholder="Nome da categoria"><button type="button" class="btn primary mini-ok" title="Salvar">✓</button><button type="button" class="btn mini-cancel" title="Cancelar">✕</button></div><select class="split-category">${categories.map(c=>`<option ${c===s.category?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+    <div><div class="fld-head"><label>Valor</label></div><input class="split-amount" type="number" min="0" step="0.01" value="${Number(s.amount||0)}"></div>
+    <div class="owner"><div class="fld-head"><label>Quem paga?</label><button type="button" class="mini-link new-person">+ Criar pessoa</button></div><div class="mini-create hidden"><input class="mini-input" type="text" maxlength="40" placeholder="Nome da pessoa"><button type="button" class="btn primary mini-ok" title="Salvar">✓</button><button type="button" class="btn mini-cancel" title="Cancelar">✕</button></div><select class="split-owner">${people.map(p=>`<option value="${p.id}" ${s.ownerId===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div>
+    <div class="person">${splitStatusCell(s.ownerId,s.reimbursed)}</div>
+    <button type="button" class="btn ghost remove-split" title="Remover">✕</button>
+  </div>`;
 }
 
 // Divide o valor total igualmente entre as linhas da divisão (a última leva o centavo que sobrar).
@@ -227,7 +237,7 @@ function openTransactionModal(type="expense",tx=null){
       list.insertAdjacentHTML("beforeend",splitRow({id:uid(),category:cat,amount:0,ownerId:cand.id,reimbursed:false},rows.length,data.categories,data.people));
       bindSplitRow(list.lastElementChild);
       autoSplit=true;distributeEqual();   // recalcula o valor entre todas as pessoas
-      if(data.people.length<2)toast("Cadastre pessoas na aba Pessoas para dividir o gasto.");
+      if(data.people.length<2)toast("Use \"Criar pessoa\" (acima de Quem paga?) para cadastrar quem divide o gasto.");
     };
     // Ligações dos botões e campos do formulário (cada alteração recalcula a prévia de parcelas e a divisão)
     $("addSplit").onclick=addPerson;
@@ -260,10 +270,55 @@ function bindSplitRow(row){
   };
   row.querySelector(".split-amount").addEventListener("input",()=>{autoSplit=false;updateSplitTotal()});
   row.querySelector(".split-owner").addEventListener("change",updateSplitStatus);
+  bindInlineCreate(row.querySelector(".category"),".new-cat",".split-category",createCategoryInline);   // "+ Criar categoria"
+  bindInlineCreate(row.querySelector(".owner"),".new-person",".split-owner",createPersonInline);       // "+ Criar pessoa"
+}
+
+// Liga o "criar na hora" de uma coluna: o link troca o select por uma caixinha de nome (✓ salva, ✕ ou Esc cancela, Enter salva).
+function bindInlineCreate(box,linkSel,selectSel,creator){
+  const link=box.querySelector(linkSel),mini=box.querySelector(".mini-create"),input=mini.querySelector(".mini-input"),sel=box.querySelector(selectSel);
+  const open=on=>{mini.classList.toggle("hidden",!on);sel.classList.toggle("hidden",on);link.classList.toggle("hidden",on);if(on){input.value="";input.focus()}};
+  const ok=()=>{if(creator(input.value.trim(),sel))open(false)};
+  link.onclick=()=>open(true);
+  mini.querySelector(".mini-cancel").onclick=()=>open(false);
+  mini.querySelector(".mini-ok").onclick=ok;
+  input.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){e.preventDefault();ok()}                       // Enter salva (sem enviar o formulário do gasto)
+    else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();open(false)}   // Esc cancela só a caixinha (não fecha o painel)
+  });
+}
+
+// Cria uma categoria sem sair do formulário: salva, coloca em todas as linhas da divisão e seleciona na linha atual. Devolve true se deu certo.
+function createCategoryInline(name,sel){
+  if(!name){toast("Digite o nome da categoria.");return false}
+  const found=data.categories.find(c=>c.toLowerCase()===name.toLowerCase());
+  const finalName=found||name;
+  if(!found){data.categories.push(name);save()}   // save() redesenha as abas de trás; o formulário aberto não é afetado
+  document.querySelectorAll("#splitList .split-category").forEach(s=>{
+    if(![...s.options].some(o=>o.value===finalName)){const o=document.createElement("option");o.value=o.textContent=finalName;s.appendChild(o)}
+  });
+  sel.value=finalName;
+  toast(found?"Essa categoria já existia: selecionada.":"Categoria criada");
+  return true;
+}
+
+// Cria uma pessoa sem sair do formulário: salva, coloca em todas as linhas da divisão e seleciona na linha atual. Devolve true se deu certo.
+function createPersonInline(name,sel){
+  if(!name){toast("Digite o nome da pessoa.");return false}
+  let p=data.people.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  const existed=!!p;
+  if(!p){p={id:uid(),name};data.people.push(p);save()}
+  document.querySelectorAll("#splitList .split-owner").forEach(s=>{
+    if(![...s.options].some(o=>o.value===p.id)){const o=document.createElement("option");o.value=p.id;o.textContent=p.name;s.appendChild(o)}
+  });
+  sel.value=p.id;
+  sel.dispatchEvent(new Event("change"));   // atualiza o Status (A receber / Já recebi) da linha
+  toast(existed?"Essa pessoa já existia: selecionada.":"Pessoa criada");
+  return true;
 }
 
 // Mostra ou esconde o status "A receber / Já recebi" conforme quem paga a parte.
-function updateSplitStatus(e){const row=e.target.closest(".split"),owner=e.target.value,person=row.querySelector(".person");person.innerHTML=owner==="self"?`<label>Status</label><div class="field-note">Não gera reembolso</div>`:`<label>Status</label><select class="split-status"><option value="pending">A receber</option><option value="received">Já recebi</option></select>`}
+function updateSplitStatus(e){const row=e.target.closest(".split"),owner=e.target.value,person=row.querySelector(".person");person.innerHTML=splitStatusCell(owner,false)}
 
 // Atualiza o total dividido e avisa se a soma das partes difere do valor total.
 function updateSplitTotal(){if(!$("splitList"))return;const total=[...document.querySelectorAll(".split-amount")].reduce((s,i)=>s+Number(i.value||0),0),target=Number($("txValue")?.value||0);$("splitSum").textContent=fmtMoney(total);const diff=target-total;$("splitHint").textContent=Math.abs(diff)<0.005?"Divisão correta.":`Diferença: ${fmtMoney(Math.abs(diff))} ${diff>0?"a distribuir":"a mais"}.`;$("splitHint").style.color=Math.abs(diff)<0.005?"var(--green)":"var(--red)"}
@@ -294,7 +349,7 @@ function saveExpenseFromForm(existingId){
     if(!(start>=1&&start<=n)){alert("A parcela inicial deve estar entre 1 e o total de parcelas.");return}
   }
   // Pix/Débito/Dinheiro: campos de cartão/parcelas ficam de fora; pagamento = data da compra, já pago
-  const base={date,description:f.get("description"),value,method,cardId:credit?f.get("cardId"):"",paymentDate:credit?(f.get("paymentDate")||date):date,paymentStatus:f.get("paymentStatus")||(credit?"planned":"paid"),notes:f.get("notes")||"",type:"expense",splits};
+  const base={date,description:f.get("description"),value,method,cardId:credit?f.get("cardId"):"",paymentDate:credit?(f.get("paymentDate")||date):date,paymentStatus:f.get("paymentStatus")||(credit?"planned":"paid"),type:"expense",splits};   // sem "notes": o formulário não tem mais Observação (a antiga é preservada na edição)
   if(existingId){
     const old=data.transactions.find(t=>t.id===existingId);
     data.transactions=data.transactions.map(t=>t.id===existingId?{...old,...base}:t);
@@ -322,7 +377,7 @@ function saveExpenseFromForm(existingId){
 function saveIncomeFromForm(existingId){
   const f=new FormData($("txForm")),value=Number(f.get("value")||0);
   if(!value){alert("Informe um valor.");return}
-  const base={date:f.get("date"),description:f.get("description"),value,type:"income",source:f.get("incomeSource")||"normal",notes:f.get("notes")||""};
+  const base={date:f.get("date"),description:f.get("description"),value,type:"income",source:f.get("incomeSource")||"normal"};   // sem "notes": a observação antiga é preservada na edição
   const where=`${base.source==="reimbursement"?"Reembolso recebido":"Entrada normal"} · entra em ${fmtDate(base.date)} (${fmtMonthLabel(base.date)})`;
   if(existingId){
     const old=data.transactions.find(t=>t.id===existingId);

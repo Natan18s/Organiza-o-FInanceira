@@ -15,7 +15,7 @@
 <script>(function(){try{var t=localStorage.getItem("meu-controle-theme");if(t!=="dark")t="light";document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="dark"?"#0a101d":"#14275f"}catch(e){}})()</script>
 </head>
 <body>
-<!-- CABEÇALHO: nome do app, botão de tema (claro/escuro) e atalhos + Gasto / + Entrada -->
+<!-- CABEÇALHO: nome do app, botão de tema (claro/escuro) e atalhos Registrar gasto / Registrar entrada. Não fica fixo: rola junto com a página. -->
 <header class="app-header">
   <div class="topbar">
     <div>
@@ -24,8 +24,8 @@
     </div>
     <div class="top-actions">
       <button class="btn theme-toggle" id="themeToggle" type="button"><span id="themeIcon">🌙</span><span class="theme-label" id="themeLabel">Escuro</span></button>
-      <button class="btn light" id="quickExpense">+ Gasto</button>
-      <button class="btn primary" id="quickIncome">+ Entrada</button>
+      <button class="btn light" id="quickExpense">Registrar gasto</button>
+      <button class="btn primary" id="quickIncome">Registrar entrada</button>
     </div>
   </div>
 </header>
@@ -37,8 +37,6 @@
     <button class="tab active" data-tab="dashboard"><span class="tab-ico">📊</span>Resumo</button>
     <button class="tab" data-tab="transactions"><span class="tab-ico">🧾</span>Lançamentos</button>
     <button class="tab" data-tab="cards"><span class="tab-ico">💳</span>Cartões</button>
-    <button class="tab" data-tab="people"><span class="tab-ico">👥</span>Pessoas</button>
-    <button class="tab" data-tab="categories"><span class="tab-ico">🏷️</span>Categorias</button>
     <button class="tab" data-tab="rules"><span class="tab-ico">⚙️</span>Regras</button>
     <button class="tab" data-tab="import"><span class="tab-ico">📥</span>Importar</button>
     <button class="tab" data-tab="tutorial"><span class="tab-ico">❓</span>Tutorial</button>
@@ -138,7 +136,7 @@
   <section id="transactions" class="page hidden">
     <div class="page-head">
       <div><h1>Lançamentos</h1><p class="muted">Uma compra pode ter várias categorias e várias pessoas pagando partes dela. Use a coluna "Selecionar" para excluir ou alterar vários lançamentos de uma vez.</p></div>
-      <div class="row-actions"><button class="btn primary" id="newExpense">+ Gasto</button><button class="btn" id="newIncome">+ Entrada</button></div>
+      <div class="row-actions"><button class="btn primary" id="newExpense">Registrar gasto</button><button class="btn" id="newIncome">Registrar entrada</button></div>
     </div>
 
     <!-- FILTROS da tabela: mês (com setas), busca e tipo -->
@@ -171,31 +169,38 @@
     <div id="cardsGrid" class="metric-grid"></div>
   </section>
 
-  <!-- ===== ABA PESSOAS ===== -->
-  <section id="people" class="page hidden">
-    <div class="page-head"><div><h1>Pessoas</h1><p class="muted">Use as pessoas para controlar automaticamente o que cada uma precisa te devolver.</p></div><button class="btn primary" id="newPerson">+ Pessoa</button></div>
-    <div class="grid-2">
-      <article class="card"><div class="card-head"><h2>Pessoas</h2></div><div id="peopleList"></div></article>
-      <article class="card"><div class="card-head"><h2>Como o reembolso funciona</h2></div>
+  <!-- ===== ABA REGRAS: Categorias, Pessoas e Regras automáticas (tudo junto para menos poluição visual) ===== -->
+  <section id="rules" class="page hidden">
+    <div class="page-head"><div><h1>Regras</h1><p class="muted">Categorias, pessoas e regras automáticas num só lugar.</p></div></div>
+
+    <!-- CATEGORIAS: segure e arraste para mudar a ordem (a ordem vale para o formulário e para a Planilha do mês) -->
+    <article class="card">
+      <div class="card-head"><h2>🏷️ Categorias</h2><button class="btn primary" id="newCategory">+ Categoria</button></div>
+      <div class="muted" style="margin-bottom:6px">Crie, edite ou remova categorias. Segure uma categoria e arraste para organizar a ordem.</div>
+      <div id="categoriesList"></div>
+    </article>
+
+    <!-- PESSOAS: quem participa das divisões de gasto -->
+    <article class="card section">
+      <div class="card-head"><h2>👥 Pessoas</h2><button class="btn primary" id="newPerson">+ Pessoa</button></div>
+      <div class="muted" style="margin-bottom:6px">Use as pessoas para controlar automaticamente o que cada uma precisa te devolver.</div>
+      <div id="peopleList"></div>
+      <details class="help-details">
+        <summary>Como o reembolso funciona</summary>
         <div class="help">
           <p>Exemplo: uma compra de <b>R$ 120</b> pode ser dividida em <b>R$ 70 seus</b> + <b>R$ 50 do João</b>.</p>
           <p>O app registra o gasto bruto de R$ 120, mas considera apenas R$ 70 como gasto seu e cria R$ 50 como valor a receber.</p>
           <p>Quando João pagar, você registra o recebimento e o sistema reduz automaticamente a pendência.</p>
         </div>
-      </article>
-    </div>
-  </section>
+      </details>
+    </article>
 
-  <!-- ===== ABA CATEGORIAS ===== -->
-  <section id="categories" class="page hidden">
-    <div class="page-head"><div><h1>Categorias</h1><p class="muted">Crie, edite ou remova categorias usadas nos seus gastos. Elas também aparecem no campo de divisão de despesas.</p></div><button class="btn primary" id="newCategory">+ Categoria</button></div>
-    <article class="card"><div id="categoriesList"></div></article>
-  </section>
-
-  <!-- ===== ABA REGRAS (categoria automática por palavra) ===== -->
-  <section id="rules" class="page hidden">
-    <div class="page-head"><div><h1>Regras automáticas</h1><p class="muted">O app pode sugerir categorias quando uma descrição contém certas palavras.</p></div><button class="btn primary" id="newRule">+ Regra</button></div>
-    <article class="card"><div id="rulesList"></div></article>
+    <!-- REGRAS AUTOMÁTICAS: palavra na descrição -> categoria sugerida -->
+    <article class="card section">
+      <div class="card-head"><h2>⚙️ Regras automáticas</h2><button class="btn primary" id="newRule">+ Regra</button></div>
+      <div class="muted" style="margin-bottom:6px">O app pode sugerir categorias quando uma descrição contém certas palavras.</div>
+      <div id="rulesList"></div>
+    </article>
   </section>
 
   <!-- ===== ABA IMPORTAR: extrato CSV/OFX e backup ===== -->
@@ -303,18 +308,17 @@
     </details>
 
     <details class="card section">
-      <summary><h2>+ Gasto e + Entrada</h2></summary>
+      <summary><h2>Registrar gasto e Registrar entrada</h2></summary>
       <p><b>Forma de pagamento</b> — Pix, Débito e Dinheiro escondem os campos de cartão/parcelas e já pagam na data da compra. Crédito pede o cartão e calcula o vencimento sozinho. Parcelado faz o mesmo e ainda lança as parcelas futuras automaticamente, uma por mês.</p>
       <p><b>Divisão do gasto por pessoa</b> — por padrão o valor fica todo com "Você"; ao adicionar pessoas, o app divide igual entre elas. Dá para ajustar cada valor manualmente. Quem não for "Você" fica com uma pendência de reembolso.</p>
+      <p>Acima de "Categoria" e de "Quem paga?" há os atalhos <b>Criar categoria</b> e <b>Criar pessoa</b>: você cria na hora, sem sair do formulário.</p>
       <p>O calendário sempre abre no mês que você está vendo na aba, para facilitar lançar algo num mês passado ou futuro.</p>
     </details>
 
     <details class="card section">
-      <summary><h2>Cartões, Pessoas, Categorias, Regras</h2></summary>
+      <summary><h2>Cartões e aba Regras</h2></summary>
       <p><b>Cartões</b> — cadastre fechamento, vencimento e limite. O app usa isso para calcular o próximo vencimento automaticamente.</p>
-      <p><b>Pessoas</b> — cadastre quem participa das divisões de gasto, para aparecerem no formulário e nas pendências de reembolso.</p>
-      <p><b>Categorias</b> — crie, edite ou exclua categorias. Editar o nome atualiza todos os lançamentos e regras que já usavam a categoria antiga.</p>
-      <p><b>Regras</b> — associam uma palavra da descrição a uma categoria, para o app já sugerir a categoria certa ao digitar (ex.: "uber" → Transporte).</p>
+      <p><b>Regras</b> — reúne três coisas. <b>Categorias</b>: crie, edite ou exclua; segure uma categoria e arraste para mudar a ordem (vale para o formulário e para a Planilha do mês). Editar o nome atualiza todos os lançamentos e regras que já usavam a categoria antiga. <b>Pessoas</b>: cadastre quem participa das divisões de gasto, para aparecerem no formulário e nas pendências de reembolso. <b>Regras automáticas</b>: associam uma palavra da descrição a uma categoria, para o app já sugerir a categoria certa ao digitar (ex.: "uber" → Transporte).</p>
     </details>
 
     <details class="card section">
