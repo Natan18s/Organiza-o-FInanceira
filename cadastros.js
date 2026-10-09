@@ -133,13 +133,13 @@ function catEnd(commit){
 }
 
 // Painel para criar ou renomear uma categoria (renomear atualiza lançamentos e regras).
-function openCategoryModal(index=null){const old=index!==null?data.categories[index]:"";openModal(index!==null?"Editar categoria":"Nova categoria",`<form id="categoryForm"><label>Nome da categoria</label><input name="name" value="${esc(old)}" placeholder="Ex.: Assinaturas" required><div class="row-actions end" style="margin-top:15px"><button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary">Salvar</button></div></form>`);$("categoryForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target),name=f.get("name").trim();if(!name)return;if(data.categories.some((c,i)=>c.toLowerCase()===name.toLowerCase()&&i!==index)){alert("Essa categoria já existe.");return}if(index===null)data.categories.push(name);else{const oldName=data.categories[index];data.categories[index]=name;data.rules.forEach(r=>{if(r.category===oldName)r.category=name});data.transactions.forEach(t=>(t.splits||[]).forEach(s=>{if(s.category===oldName)s.category=name}))}closeModal();save();toast("Categoria salva")}}
+function openCategoryModal(index=null){const old=index!==null?data.categories[index]:"";openModal(index!==null?"Editar categoria":"Nova categoria",`<form id="categoryForm"><label>Nome da categoria</label><input name="name" value="${esc(old)}" placeholder="Ex.: Assinaturas" required><div class="row-actions end" style="margin-top:15px"><button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary">Salvar</button></div></form>`);$("categoryForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target),name=f.get("name").trim();if(!name)return;if(data.categories.some((c,i)=>c.toLowerCase()===name.toLowerCase()&&i!==index)){askAlert("Essa categoria já existe.");return}if(index===null)data.categories.push(name);else{const oldName=data.categories[index];data.categories[index]=name;data.rules.forEach(r=>{if(r.category===oldName)r.category=name});data.transactions.forEach(t=>(t.splits||[]).forEach(s=>{if(s.category===oldName)s.category=name}))}closeModal();save();toast("Categoria salva")}}
 
 // Atalho para editar a categoria de posição i.
 function editCategory(i){openCategoryModal(i)}
 
 // Exclui uma categoria, se nenhum lançamento a estiver usando.
-function deleteCategory(i){const name=data.categories[i];if(data.transactions.some(t=>(t.splits||[]).some(s=>s.category===name))){alert("Essa categoria está sendo usada em lançamentos. Edite os lançamentos ou mova-os para outra categoria antes de excluir.");return}if(confirm(`Excluir a categoria "${name}"?`)){data.categories.splice(i,1);save();toast("Categoria excluída")}}
+async function deleteCategory(i){const name=data.categories[i];if(data.transactions.some(t=>(t.splits||[]).some(s=>s.category===name))){askAlert("Essa categoria está sendo usada em lançamentos. Edite os lançamentos ou mova-os para outra categoria antes de excluir.");return}if(await askConfirm(`Excluir a categoria "${name}"?`,{title:"Excluir categoria",okText:"Excluir",danger:true})){data.categories.splice(i,1);save();toast("Categoria excluída")}}
 
 // Painel para criar ou editar um cartão.
 function openCardModal(id=null){
@@ -155,7 +155,7 @@ function openCardModal(id=null){
 }
 
 // Exclui um cartão, se não houver lançamentos nele.
-function deleteCard(id){if(data.transactions.some(t=>t.cardId===id)){alert("Este cartão possui lançamentos. Exclua ou mova os lançamentos antes de remover o cartão.");return}if(confirm("Excluir cartão?")){data.cards=data.cards.filter(c=>c.id!==id);save()}}
+async function deleteCard(id){if(data.transactions.some(t=>t.cardId===id)){askAlert("Este cartão possui lançamentos. Exclua ou mova os lançamentos antes de remover o cartão.");return}if(await askConfirm("Excluir este cartão?",{title:"Excluir cartão",okText:"Excluir",danger:true})){data.cards=data.cards.filter(c=>c.id!==id);save()}}
 
 // Painel para cadastrar uma pessoa nas divisões.
 function openPersonModal(){
@@ -164,7 +164,7 @@ function openPersonModal(){
 }
 
 // Exclui uma pessoa, se não estiver ligada a lançamentos.
-function deletePerson(id){if(data.transactions.some(t=>(t.splits||[]).some(s=>s.ownerId===id))){alert("Esta pessoa está vinculada a lançamentos.");return}if(confirm("Excluir pessoa?")){data.people=data.people.filter(p=>p.id!==id);save()}}
+async function deletePerson(id){if(data.transactions.some(t=>(t.splits||[]).some(s=>s.ownerId===id))){askAlert("Esta pessoa está vinculada a lançamentos.");return}if(await askConfirm("Excluir esta pessoa?",{title:"Excluir pessoa",okText:"Excluir",danger:true})){data.people=data.people.filter(p=>p.id!==id);save()}}
 
 // Painel para criar uma regra automática de categoria.
 function openRuleModal(){
@@ -173,4 +173,4 @@ function openRuleModal(){
 }
 
 // Exclui uma regra automática.
-function deleteRule(id){if(confirm("Excluir regra?")){data.rules=data.rules.filter(r=>r.id!==id);save()}}
+async function deleteRule(id){if(await askConfirm("Excluir esta regra?",{title:"Excluir regra",okText:"Excluir",danger:true})){data.rules=data.rules.filter(r=>r.id!==id);save()}}

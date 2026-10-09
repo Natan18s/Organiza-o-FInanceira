@@ -35,16 +35,16 @@ async function copyBackupText(){
     toast("Backup copiado. Cole em uma mensagem para você mesmo ou direto no outro aparelho.");
   }catch{
     $("backupExportText").value=text; $("backupExportText").classList.remove("hidden-file");
-    alert("Não consegui copiar automaticamente. Selecione o texto que apareceu na caixa e copie manualmente.");
+    askAlert("Não consegui copiar automaticamente. Selecione o texto que apareceu na caixa e copie manualmente.");
   }
 }
 
 // Junta o backup recebido (arquivo, texto colado...) aos dados atuais, preenchendo o que faltar, como o loadData() já faz ao abrir o app
-function applyBackup(x,sourceLabel){
+async function applyBackup(x,sourceLabel){
   if(!x || typeof x!=="object" || !Array.isArray(x.transactions) || !Array.isArray(x.cards) || !Array.isArray(x.people)){
-    alert("Esse backup não tem o formato esperado (faltam lançamentos, cartões ou pessoas)."); return false;
+    askAlert("Esse backup não tem o formato esperado (faltam lançamentos, cartões ou pessoas)."); return false;
   }
-  if(!confirm("Restaurar este backup vai substituir TODOS os dados deste aparelho. Deseja continuar?")) return false;
+  if(!(await askConfirm("Restaurar este backup vai substituir TODOS os dados deste aparelho. Deseja continuar?",{title:"Restaurar backup",okText:"Restaurar",danger:true}))) return false;
   const merged=structuredClone(defaultData);
   merged.transactions=(x.transactions||[]).map(t=>normalizeTransaction({...t}));
   merged.cards=x.cards.length?x.cards:merged.cards;
@@ -67,20 +67,20 @@ function applyBackup(x,sourceLabel){
 function restoreBackup(){
   const f=$("backupInput").files[0];if(!f)return;
   const reader=new FileReader();
-  reader.onload=()=>{
-    try{ applyBackup(JSON.parse(reader.result),"arquivo") }
-    catch(e){ alert("Não consegui ler esse arquivo como backup. Confira se é o .json exportado pelo próprio app.") }
+  reader.onload=async()=>{
+    try{ await applyBackup(JSON.parse(reader.result),"arquivo") }
+    catch(e){ askAlert("Não consegui ler esse arquivo como backup. Confira se é o .json exportado pelo próprio app.") }
   };
-  reader.onerror=()=>alert("Não consegui abrir esse arquivo.");
+  reader.onerror=()=>askAlert("Não consegui abrir esse arquivo.");
   reader.readAsText(f);
   $("backupInput").value="";
 }
 
 // Restaura a partir do texto colado.
-function restoreFromText(){
+async function restoreFromText(){
   const raw=$("backupPasteText").value.trim();
-  if(!raw){alert("Cole o texto do backup antes de restaurar.");return}
+  if(!raw){askAlert("Cole o texto do backup antes de restaurar.");return}
   try{
-    if(applyBackup(JSON.parse(raw),"texto colado")) $("backupPasteText").value="";
-  }catch(e){ alert("Esse texto não é um backup válido. Confira se copiou tudo, do { inicial ao } final.") }
+    if(await applyBackup(JSON.parse(raw),"texto colado")) $("backupPasteText").value="";
+  }catch(e){ askAlert("Esse texto não é um backup válido. Confira se copiou tudo, do { inicial ao } final.") }
 }

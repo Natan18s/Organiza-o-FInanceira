@@ -209,3 +209,15 @@ tr.sheet-dragging td{opacity:.35}
   .sheet-cat-sub{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-top:3px}
   .sheet-date{font-size:11px}
 }
+
+/* ===== Caixa de confirmação/aviso do app (askConfirm / askAlert) ===== */
+.confirm-overlay{position:fixed;inset:0;z-index:60;background:rgba(2,6,23,.6);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:18px;overscroll-behavior:contain}
+.confirm-box{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:18px;width:min(400px,100%);padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:confirm-in .14s ease-out}
+.confirm-box h3{margin:0 0 8px;font-size:19px}
+.confirm-box p{margin:0 0 18px;color:var(--muted-strong);line-height:1.45;white-space:pre-line;overflow-wrap:anywhere}
+.confirm-actions{display:flex;justify-content:flex-end;gap:8px}
+.confirm-actions .btn{min-width:96px;padding:11px 16px}
+.confirm-actions .btn.danger{background:var(--red-solid);color:#fff;border-color:var(--red-solid)}
+.confirm-actions .btn.danger:hover{filter:brightness(1.1)}
+@keyframes confirm-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+@media(max-width:700px){.confirm-actions .btn{flex:1}}

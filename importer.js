@@ -138,7 +138,7 @@ async function handleFile(file){
     let parsed=null;
     try{ parsed=JSON.parse(await file.text()) }catch{}
     if(parsed && Array.isArray(parsed.transactions) && Array.isArray(parsed.cards) && Array.isArray(parsed.people)){
-      if(applyBackup(parsed,"arquivo solto em Importar")){
+      if(await applyBackup(parsed,"arquivo solto em Importar")){
         $("importStatus").textContent="Esse arquivo era um backup do próprio app — os dados foram restaurados direto, sem passar pela importação de extrato.";
         $("importStatus").classList.remove("hidden");
       }

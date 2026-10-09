@@ -84,7 +84,7 @@ function renderTransactions(){
 // Painel para definir a data/status de pagamento de todos os gastos selecionados.
 function openBulkPaymentModal(){
   const ids=[...selectedTxIds], expenses=ids.map(id=>data.transactions.find(t=>t.id===id)).filter(t=>t?.type==="expense");
-  if(!expenses.length){alert("Selecione pelo menos um gasto. A data de pagamento previsto só vale para gastos.");return}
+  if(!expenses.length){askAlert("Selecione pelo menos um gasto. A data de pagamento previsto só vale para gastos.");return}
   const suggested=expenses.length===1?(expenses[0].paymentDate||nextCardPaymentDate(expenses[0].cardId,expenses[0].date)):(month+"-19");
   openModal("Definir pagamento previsto",`<form id="bulkPayForm"><p>Você selecionou <b>${expenses.length}</b> gasto(s). A data abaixo será aplicada a todos.${ids.length>expenses.length?" As entradas selecionadas serão ignoradas.":""}</p><div><label>Data de pagamento</label><input name="paymentDate" type="date" value="${suggested}" required></div><div style="margin-top:10px"><label>Status</label><select name="status"><option value="planned">Pagamento previsto</option><option value="paid">Já pago</option></select></div><div class="row-actions end" style="margin-top:15px"><button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary">Aplicar aos selecionados</button></div></form>`);
   $("bulkPayForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);expenses.forEach(t=>{t.paymentDate=f.get("paymentDate");t.paymentStatus=f.get("status")});logActivity("bulk",`Pagamento previsto definido em ${expenses.length} gasto(s)`,`Data ${fmtDate(f.get("paymentDate"))} · ${f.get("status")==="paid"?"já pago":"previsto"} · ${expenses.slice(0,3).map(t=>t.description).join(", ")}${expenses.length>3?"…":""}`);selectedTxIds.clear();closeModal();save();toast(`Pagamento previsto aplicado a ${expenses.length} gasto(s)`) };
@@ -98,10 +98,10 @@ function clearBulkPaymentDate(){
 }
 
 // Exclui de uma vez todos os lançamentos selecionados, com confirmação e opção de desfazer.
-function bulkDelete(){
+async function bulkDelete(){
   const items=[...selectedTxIds].map(id=>data.transactions.find(t=>t.id===id)).filter(Boolean);
   if(!items.length)return;
-  if(!confirm(`Excluir ${items.length} lançamento(s) selecionado(s)? Logo depois você poderá desfazer.`))return;
+  if(!(await askConfirm(`Excluir ${items.length} lançamento(s) selecionado(s)? Logo depois você poderá desfazer.`,{title:"Excluir lançamentos",okText:"Excluir",danger:true})))return;
   const ids=new Set(items.map(t=>t.id));
   data.transactions=data.transactions.filter(t=>!ids.has(t.id));
   logActivity("delete",`${items.length} lançamento(s) excluído(s) de uma vez`,items.slice(0,3).map(t=>t.description).join(", ")+(items.length>3?"…":""));
@@ -265,7 +265,7 @@ function openTransactionModal(type="expense",tx=null){
 // Liga os botões e campos de uma linha da divisão (remover, editar valor, trocar pessoa).
 function bindSplitRow(row){
   row.querySelector(".remove-split").onclick=()=>{
-    if(document.querySelectorAll("#splitList .split").length<=1){alert("O gasto precisa ter pelo menos uma parte.");return}
+    if(document.querySelectorAll("#splitList .split").length<=1){askAlert("O gasto precisa ter pelo menos uma parte.");return}
     row.remove();autoSplit?distributeEqual():updateSplitTotal();
   };
   row.querySelector(".split-amount").addEventListener("input",()=>{autoSplit=false;updateSplitTotal()});
@@ -339,14 +339,14 @@ function scaleSplits(splits,part,total){
 function saveExpenseFromForm(existingId){
   const f=new FormData($("txForm")),value=Number(f.get("value")||0),splits=collectSplits(),sum=splits.reduce((s,x)=>s+x.amount,0);
   const method=f.get("method")||"pix",credit=isCreditMethod(method),date=f.get("date");
-  if(!value){alert("Informe um valor.");return}
-  if(Math.abs(sum-value)>0.005){alert("A soma das partes precisa ser exatamente igual ao valor total.");return}
-  if(credit&&!f.get("cardId")){alert("Selecione o cartão.");return}
+  if(!value){askAlert("Informe um valor.");return}
+  if(Math.abs(sum-value)>0.005){askAlert("A soma das partes precisa ser exatamente igual ao valor total.");return}
+  if(credit&&!f.get("cardId")){askAlert("Selecione o cartão.");return}
   let n=1,start=1;
   if(method==="installment"&&!existingId){
     n=Number(f.get("installments")||0);start=Number(f.get("startInstallment")||1);
-    if(!(n>=2&&n<=48)){alert("Informe o total de parcelas (de 2 a 48).");return}
-    if(!(start>=1&&start<=n)){alert("A parcela inicial deve estar entre 1 e o total de parcelas.");return}
+    if(!(n>=2&&n<=48)){askAlert("Informe o total de parcelas (de 2 a 48).");return}
+    if(!(start>=1&&start<=n)){askAlert("A parcela inicial deve estar entre 1 e o total de parcelas.");return}
   }
   // Pix/Débito/Dinheiro: campos de cartão/parcelas ficam de fora; pagamento = data da compra, já pago
   const base={date,description:f.get("description"),value,method,cardId:credit?f.get("cardId"):"",paymentDate:credit?(f.get("paymentDate")||date):date,paymentStatus:f.get("paymentStatus")||(credit?"planned":"paid"),type:"expense",splits};   // sem "notes": o formulário não tem mais Observação (a antiga é preservada na edição)
@@ -376,7 +376,7 @@ function saveExpenseFromForm(existingId){
 // Valida e salva a entrada do formulário (nova ou edição).
 function saveIncomeFromForm(existingId){
   const f=new FormData($("txForm")),value=Number(f.get("value")||0);
-  if(!value){alert("Informe um valor.");return}
+  if(!value){askAlert("Informe um valor.");return}
   const base={date:f.get("date"),description:f.get("description"),value,type:"income",source:f.get("incomeSource")||"normal"};   // sem "notes": a observação antiga é preservada na edição
   const where=`${base.source==="reimbursement"?"Reembolso recebido":"Entrada normal"} · entra em ${fmtDate(base.date)} (${fmtMonthLabel(base.date)})`;
   if(existingId){
@@ -398,13 +398,13 @@ function editTransaction(id){
   const t=data.transactions.find(x=>x.id===id);if(!t)return;
   if(t.type==="expense")openTransactionModal("expense",t);
   else if(t.type==="income")openTransactionModal("income",t);
-  else alert("Pagamento de cartão importado é um ajuste da fatura e, nesta versão, deve ser excluído/reimportado se necessário.");
+  else askAlert("Pagamento de cartão importado é um ajuste da fatura e, nesta versão, deve ser excluído/reimportado se necessário.");
 }
 
 // Exclui um lançamento (com confirmação e opção de desfazer).
-function removeTransaction(id){
+async function removeTransaction(id){
   const t=data.transactions.find(x=>x.id===id); if(!t)return;
-  if(!confirm("Excluir este lançamento?"))return;
+  if(!(await askConfirm(`"${t.description}" · ${fmtMoney(t.value)}. Logo depois você poderá desfazer.`,{title:"Excluir este lançamento?",okText:"Excluir",danger:true})))return;
   data.transactions=data.transactions.filter(x=>x.id!==id);
   logActivity("delete",`Excluído: ${t.description}`,`${t.type==="income"?"Entrada":t.type==="expense"?"Gasto":"Pagamento de cartão"} de ${fmtMoney(t.value)} · data ${fmtDate(t.date)}`);
   lastDeleted=[t];

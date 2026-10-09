@@ -76,3 +76,28 @@ function closeModal(mode){
   modalHistory=false;
   if(mode!=="pop"){ ignorePop++; history.back(); }
 }
+
+// ----- Caixa de confirmação/aviso do próprio app (no lugar do confirm()/alert() do navegador) -----
+// Uso: if(await askConfirm("Mensagem",{title:"Título",okText:"Excluir",danger:true})) {...}   (devolve true/false)
+// askAlert("Mensagem") mostra só um aviso com botão OK (não precisa de await).
+function askConfirm(message,opts={}){
+  const {title="Confirmar",okText="Confirmar",cancelText="Cancelar",danger=false,alertOnly=false}=opts;
+  return new Promise(resolve=>{
+    const wrap=document.createElement("div");
+    wrap.className="confirm-overlay";
+    wrap.innerHTML=`<div class="confirm-box" role="alertdialog" aria-modal="true"><h3></h3><p></p><div class="confirm-actions">${alertOnly?"":`<button type="button" class="btn ghost cf-cancel"></button>`}<button type="button" class="btn ${danger?"danger":"primary"} cf-ok"></button></div></div>`;
+    wrap.querySelector("h3").textContent=title;
+    wrap.querySelector("p").textContent=message;   // textContent: nunca interpreta HTML
+    wrap.querySelector(".cf-ok").textContent=okText;
+    const cancel=wrap.querySelector(".cf-cancel");if(cancel)cancel.textContent=cancelText;
+    const done=r=>{document.removeEventListener("keydown",onKey,true);wrap.remove();resolve(r)};
+    const onKey=e=>{if(e.key==="Escape"){e.preventDefault();e.stopImmediatePropagation();done(alertOnly)}};   // Esc cancela e não fecha o painel que está atrás
+    document.addEventListener("keydown",onKey,true);
+    wrap.addEventListener("click",e=>{if(e.target===wrap)done(alertOnly)});   // tocar fora = cancelar
+    wrap.querySelector(".cf-ok").onclick=()=>done(true);
+    if(cancel)cancel.onclick=()=>done(false);
+    document.body.appendChild(wrap);
+    (danger&&cancel?cancel:wrap.querySelector(".cf-ok")).focus();   // em exclusões, o foco começa em Cancelar (evita apagar sem querer)
+  });
+}
+function askAlert(message,title="Aviso"){return askConfirm(message,{title,okText:"OK",alertOnly:true})}
