@@ -5,7 +5,7 @@
 
 /* ===== Base ===== */
 html{scrollbar-gutter:stable;-webkit-text-size-adjust:100%}
-html.modal-open,html.modal-open body{overflow:hidden}   /* com o painel aberto, só o painel rola (a tela de trás fica parada) */
+html.modal-open,html.modal-open body,html.confirm-open,html.confirm-open body{overflow:hidden}   /* com o painel aberto, só o painel rola (a tela de trás fica parada) */
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s}
 button,input,select{font:inherit}

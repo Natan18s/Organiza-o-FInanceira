@@ -211,7 +211,7 @@ tr.sheet-dragging td{opacity:.35}
 }
 
 /* ===== Caixa de confirmação/aviso do app (askConfirm / askAlert) ===== */
-.confirm-overlay{position:fixed;inset:0;z-index:60;background:rgba(2,6,23,.6);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:18px;overscroll-behavior:contain}
+.confirm-overlay{position:fixed;inset:0;z-index:60;touch-action:none;background:rgba(2,6,23,.6);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:18px;overscroll-behavior:contain}
 .confirm-box{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:18px;width:min(400px,100%);padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:confirm-in .14s ease-out}
 .confirm-box h3{margin:0 0 8px;font-size:19px}
 .confirm-box p{margin:0 0 18px;color:var(--muted-strong);line-height:1.45;white-space:pre-line;overflow-wrap:anywhere}

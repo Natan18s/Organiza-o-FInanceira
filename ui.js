@@ -80,6 +80,17 @@ function closeModal(mode){
 // ----- Caixa de confirmação/aviso do próprio app (no lugar do confirm()/alert() do navegador) -----
 // Uso: if(await askConfirm("Mensagem",{title:"Título",okText:"Excluir",danger:true})) {...}   (devolve true/false)
 // askAlert("Mensagem") mostra só um aviso com botão OK (não precisa de await).
+// Como o painel (modal), a caixa ganha uma entrada no histórico: o botão voltar do celular FECHA a caixa (cancela) em vez de trocar de aba.
+const confirmStack=[];   // caixas abertas agora (a de cima é a última)
+
+// Usada pelo botão voltar (main.js): fecha a caixa de cima, se houver. Devolve true se fechou alguma.
+function closeTopConfirm(){
+  const top=confirmStack[confirmStack.length-1];
+  if(!top)return false;
+  top.cancel();
+  return true;
+}
+
 function askConfirm(message,opts={}){
   const {title="Confirmar",okText="Confirmar",cancelText="Cancelar",danger=false,alertOnly=false}=opts;
   return new Promise(resolve=>{
@@ -90,12 +101,34 @@ function askConfirm(message,opts={}){
     wrap.querySelector("p").textContent=message;   // textContent: nunca interpreta HTML
     wrap.querySelector(".cf-ok").textContent=okText;
     const cancel=wrap.querySelector(".cf-cancel");if(cancel)cancel.textContent=cancelText;
-    const done=r=>{document.removeEventListener("keydown",onKey,true);wrap.remove();resolve(r)};
-    const onKey=e=>{if(e.key==="Escape"){e.preventDefault();e.stopImmediatePropagation();done(alertOnly)}};   // Esc cancela e não fecha o painel que está atrás
+
+    let closed=false;
+    const entry={cancel:()=>close(alertOnly,"pop")};   // chamado pelo botão voltar: a entrada do histórico já saiu
+    // mode "pop": veio do botão voltar. Sem mode (botões, fora, Esc): remove a entrada do histórico e só então devolve a resposta.
+    const close=(result,mode)=>{
+      if(closed)return;closed=true;
+      document.removeEventListener("keydown",onKey,true);
+      wrap.remove();
+      const i=confirmStack.indexOf(entry);if(i>=0)confirmStack.splice(i,1);
+      if(!confirmStack.length)document.documentElement.classList.remove("confirm-open");
+      if(mode==="pop"){resolve(result);return}
+      let fin=false;
+      const finish=()=>{if(fin)return;fin=true;window.removeEventListener("popstate",finish);resolve(result)};
+      window.addEventListener("popstate",finish);
+      setTimeout(finish,300);   // segurança: se o navegador não avisar, segue mesmo assim
+      ignorePop++;history.back();
+    };
+    const onKey=e=>{
+      if(e.key==="Escape"&&confirmStack[confirmStack.length-1]===entry){e.preventDefault();e.stopImmediatePropagation();close(alertOnly)}   // Esc cancela e não fecha o painel que está atrás
+    };
     document.addEventListener("keydown",onKey,true);
-    wrap.addEventListener("click",e=>{if(e.target===wrap)done(alertOnly)});   // tocar fora = cancelar
-    wrap.querySelector(".cf-ok").onclick=()=>done(true);
-    if(cancel)cancel.onclick=()=>done(false);
+    wrap.addEventListener("click",e=>{if(e.target===wrap)close(alertOnly)});   // tocar fora = cancelar
+    wrap.querySelector(".cf-ok").onclick=()=>close(true);
+    if(cancel)cancel.onclick=()=>close(false);
+
+    confirmStack.push(entry);
+    history.pushState({tab:currentTab,confirm:true},"");   // o botão voltar do celular vai fechar esta caixa
+    document.documentElement.classList.add("confirm-open");   // a tela de trás fica parada
     document.body.appendChild(wrap);
     (danger&&cancel?cancel:wrap.querySelector(".cf-ok")).focus();   // em exclusões, o foco começa em Cancelar (evita apagar sem querer)
   });
